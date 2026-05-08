@@ -9,17 +9,13 @@ import {
   Settings as SettingsIcon,
   LogOut,
   Menu,
-  X,
-  Sun,
-  Moon
+  X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { profile, clinic, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const navigate = useNavigate();
 
@@ -42,27 +38,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 flex font-sans">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-colors duration-300">
-        <div className="p-6 flex items-center justify-between">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 bg-sky-600 rounded-xl overflow-hidden flex items-center justify-center text-white shrink-0 shadow-sm shadow-sky-600/20">
-              {clinic?.logoUrl ? (
-                <img src={clinic.logoUrl} alt={clinic.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <Stethoscope size={24} />
-              )}
-            </div>
-            <span className="font-bold text-xl text-slate-800 dark:text-white truncate tracking-tight">{clinic?.name || 'XCLIN'}</span>
+      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200">
+        <div className="p-6 flex items-center gap-3">
+          <div className="w-10 h-10 bg-sky-600 rounded-xl overflow-hidden flex items-center justify-center text-white shrink-0 shadow-sm shadow-sky-600/20">
+            {clinic?.logoUrl ? (
+              <img src={clinic.logoUrl} alt={clinic.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <Stethoscope size={24} />
+            )}
           </div>
-          <button 
-            onClick={toggleTheme}
-            className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/30 rounded-lg transition-colors"
-            title={theme === 'light' ? 'Mudar para modo escuro' : 'Mudar para modo claro'}
-          >
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
+          <span className="font-bold text-xl text-slate-800 truncate tracking-tight">{clinic?.name || 'XCLIN'}</span>
         </div>
 
         <nav className="flex-1 px-4 py-4 space-y-1">
@@ -71,10 +58,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               key={item.to}
               to={item.to}
               className={({ isActive }) => `
-                flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all
+                flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors
                 ${isActive 
-                  ? 'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-400' 
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}
+                  ? 'bg-sky-50 text-sky-700' 
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
               `}
             >
               <item.icon size={20} />
@@ -83,19 +70,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="p-4 border-t border-slate-100">
           <div className="flex items-center gap-3 px-4 py-3 mb-2">
-            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold uppercase transition-colors">
+            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold uppercase">
               {profile?.displayName?.charAt(0) || profile?.email?.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{profile?.displayName}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate capitalize">{profile?.role}</p>
+              <p className="text-sm font-semibold text-slate-800 truncate">{profile?.displayName}</p>
+              <p className="text-xs text-slate-500 truncate capitalize">{profile?.role}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
             <LogOut size={20} />
             Sair
@@ -106,29 +93,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar - Mobile */}
-        <header className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 flex items-center justify-between transition-colors duration-300">
+        <header className="md:hidden bg-white border-b border-slate-200 px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
              {clinic?.logoUrl ? (
               <img src={clinic.logoUrl} alt={clinic.name} className="w-8 h-8 object-contain rounded" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-8 h-8 bg-sky-600 rounded flex items-center justify-center text-white font-bold">X</div>
             )}
-            <span className="font-bold text-lg text-slate-800 dark:text-white">{clinic?.name || 'XCLIN'}</span>
+            <span className="font-bold text-lg text-slate-800">{clinic?.name || 'XCLIN'}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={toggleTheme}
-              className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-            >
-              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-            </button>
-            <button 
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
-            >
-              <Menu size={24} />
-            </button>
-          </div>
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+          >
+            <Menu size={24} />
+          </button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
@@ -162,13 +141,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-72 bg-white dark:bg-slate-900 border-r dark:border-slate-800 z-50 md:hidden flex flex-col shadow-2xl transition-colors duration-300"
+              className="fixed inset-y-0 left-0 w-72 bg-white z-50 md:hidden flex flex-col shadow-2xl"
             >
-              <div className="p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+              <div className="p-6 flex items-center justify-between border-b border-slate-100">
                 <span className="font-bold text-xl text-sky-600">XCLIN</span>
                 <button 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                  className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"
                 >
                   <X size={24} />
                 </button>
@@ -182,8 +161,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     className={({ isActive }) => `
                       flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors
                       ${isActive 
-                        ? 'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-400' 
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}
+                        ? 'bg-sky-50 text-sky-700' 
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
                     `}
                   >
                     <item.icon size={22} />
@@ -191,10 +170,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </NavLink>
                 ))}
               </nav>
-              <div className="p-6 border-t border-slate-100 dark:border-slate-800">
+              <div className="p-6 border-t border-slate-100">
                  <button
                   onClick={handleLogout}
-                  className="flex items-center gap-3 w-full px-4 py-4 text-base font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+                  className="flex items-center gap-3 w-full px-4 py-4 text-base font-medium text-red-600 hover:bg-red-50 rounded-xl transition-colors"
                 >
                   <LogOut size={22} />
                   Sair

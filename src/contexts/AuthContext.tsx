@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   onAuthStateChanged, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
   signOut,
   User,
   signInWithEmailAndPassword,
@@ -16,6 +18,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   clinic: Clinic | null;
   loading: boolean;
+  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string, role: any, clinicId: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -43,9 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setClinic({ id: clinicDoc.id, ...clinicDoc.data() } as Clinic);
           }
         }
-      } else {
-        setProfile(null);
-        setClinic(null);
       }
     } catch (error) {
       console.error('Error fetching profile/clinic:', error);
@@ -66,6 +66,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      await fetchProfileAndClinic(result.user.uid);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
 
   const signInWithEmail = async (email: string, pass: string) => {
     try {
@@ -113,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{ 
       user, profile, clinic, loading, 
-      signInWithEmail, signUpWithEmail,
+      signInWithGoogle, signInWithEmail, signUpWithEmail,
       logout, refreshProfile 
     }}>
       {children}

@@ -136,52 +136,52 @@ export function Professionals() {
   };
 
   return (
-    <div className="space-y-10 transition-colors duration-300">
+    <div className="space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-sans transition-colors">Profissionais e Especialidades</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-sans transition-colors">Gerencie a equipe técnica da clínica.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Profissionais e Especialidades</h1>
+          <p className="text-slate-500">Gerencie a equipe técnica da clínica.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Professionals List */}
-        <div className="lg:col-span-2 space-y-6 order-2 lg:order-1">
+        <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200 font-sans transition-colors">Equipe</h2>
+            <h2 className="text-lg font-bold text-slate-800">Equipe</h2>
             <button onClick={() => setIsProfModalOpen(true)} className="btn-primary py-2 text-sm">
               <UserPlus size={18} />
               Adicionar Profissional
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {loading ? <p className="dark:text-slate-400">Carregando...</p> : professionals.map(prof => (
-              <div key={prof.id} className="medical-card p-5 group hover:border-sky-500 transition-all">
+            {loading ? <p>Carregando...</p> : professionals.map(prof => (
+              <div key={prof.id} className="medical-card p-5 group">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 flex items-center justify-center font-bold text-xl uppercase shrink-0 transition-colors">
+                    <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-xl uppercase">
                       {prof.name.charAt(0)}
                     </div>
-                    <div className="truncate">
-                      <h4 className="font-bold text-slate-900 dark:text-slate-100 truncate">{prof.name}</h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{prof.email}</p>
+                    <div>
+                      <h4 className="font-bold text-slate-900">{prof.name}</h4>
+                      <p className="text-xs text-slate-500">{prof.email}</p>
                     </div>
                   </div>
-                   <div className="relative group/menu shrink-0">
-                    <button className="p-2 text-slate-300 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-400 transition-colors">
+                   <div className="relative group/menu">
+                    <button className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
                       <MoreVertical size={18} />
                     </button>
                     <div className="absolute right-0 top-full pt-1 z-50 hidden group-hover/menu:block min-w-[120px]">
-                      <div className="bg-white dark:bg-slate-900 shadow-xl rounded-xl border border-slate-100 dark:border-slate-800 py-1 transition-colors">
+                      <div className="bg-white shadow-lg rounded-xl border border-slate-100 py-1">
                         <button 
                           onClick={() => handleEditProf(prof)}
-                          className="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                          className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                         >
                           Editar
                         </button>
                         <button 
                           onClick={() => setDeleteConfirm({ id: prof.id, type: 'prof' })}
-                          className="w-full text-left px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                          className="w-full text-left px-4 py-2 text-xs font-medium text-rose-600 hover:bg-slate-50 transition-colors"
                         >
                           Excluir
                         </button>
@@ -191,7 +191,7 @@ export function Professionals() {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {prof.specialties.map(sid => (
-                    <span key={sid} className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-bold uppercase transition-colors">
+                    <span key={sid} className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
                       {specialties.find(s => s.id === sid)?.name || 'Especialidade'}
                     </span>
                   ))}
@@ -202,32 +202,32 @@ export function Professionals() {
         </div>
 
         {/* Specialties Sidebar */}
-        <div className="space-y-6 order-1 lg:order-2">
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200 font-sans transition-colors">Especialidades</h2>
-            <button onClick={() => setIsSpecModalOpen(true)} className="text-sky-600 dark:text-sky-400 p-2 hover:bg-sky-50 dark:hover:bg-sky-900/10 rounded-lg transition-all">
+            <h2 className="text-lg font-bold text-slate-800">Especialidades</h2>
+            <button onClick={() => setIsSpecModalOpen(true)} className="text-sky-600 p-2 hover:bg-sky-50 rounded-lg transition-all">
               <Plus size={20} />
             </button>
           </div>
-          <div className="medical-card p-2 bg-white dark:bg-slate-900 transition-colors">
-            <div className="divide-y divide-slate-50 dark:divide-slate-800">
+          <div className="medical-card p-2">
+            <div className="divide-y divide-slate-50">
               {specialties.map(spec => (
-                <div key={spec.id} className="p-3 flex items-center justify-between group rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <div key={spec.id} className="p-3 flex items-center justify-between group">
                   <div className="flex items-center gap-3">
-                    <div className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg transition-colors"><Tag size={14} /></div>
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">{spec.name}</span>
+                    <div className="p-1.5 bg-slate-100 text-slate-400 rounded-lg"><Tag size={14} /></div>
+                    <span className="text-sm font-medium text-slate-700">{spec.name}</span>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleEditSpec(spec)} className="text-slate-300 hover:text-sky-600 dark:text-slate-600 dark:hover:text-sky-400 transition-colors p-1">
+                    <button onClick={() => handleEditSpec(spec)} className="text-slate-300 hover:text-sky-600 transition-colors p-1">
                       <Plus size={16} className="rotate-45" />
                     </button>
-                    <button onClick={() => setDeleteConfirm({ id: spec.id, type: 'spec' })} className="text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors p-1">
+                    <button onClick={() => setDeleteConfirm({ id: spec.id, type: 'spec' })} className="text-slate-300 hover:text-red-500 transition-colors p-1">
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
               ))}
-              {specialties.length === 0 && <p className="p-4 text-center text-xs text-slate-400 dark:text-slate-500">Nenhuma especialidade cadastrada.</p>}
+              {specialties.length === 0 && <p className="p-4 text-center text-xs text-slate-400">Nenhuma especialidade cadastrada.</p>}
             </div>
           </div>
         </div>
@@ -236,10 +236,10 @@ export function Professionals() {
       {/* Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl transition-all">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 font-sans">Excluir {deleteConfirm.type === 'prof' ? 'Profissional' : 'Especialidade'}?</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 font-sans">Tem certeza que deseja remover este item? Esta ação não pode ser desfeita.</p>
-            <div className="flex gap-3 font-sans">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transition-all">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Excluir {deleteConfirm.type === 'prof' ? 'Profissional' : 'Especialidade'}?</h3>
+            <p className="text-sm text-slate-500 mb-6">Tem certeza que deseja remover este item? Esta ação não pode ser desfeita.</p>
+            <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 btn-secondary">Cancelar</button>
               <button 
                 onClick={() => deleteConfirm.type === 'prof' ? handleDeleteProf(deleteConfirm.id) : handleDeleteSpec(deleteConfirm.id)} 
@@ -255,19 +255,16 @@ export function Professionals() {
       {/* Modals */}
       {isSpecModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-sm w-full shadow-xl transition-colors">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 font-sans">{editingSpecId ? 'Editar Especialidade' : 'Nova Especialidade'}</h3>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+            <h3 className="text-lg font-bold mb-4">{editingSpecId ? 'Editar Especialidade' : 'Nova Especialidade'}</h3>
             <form onSubmit={handleAddSpecialty} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider transition-colors">Nome da Especialidade</label>
-                <input 
-                  type="text" required placeholder="Ex: Fonoaudiologia Infantil" 
-                  className="input-field w-full" value={newSpec} onChange={e => setNewSpec(e.target.value)} 
-                />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setIsSpecModalOpen(false)} className="flex-1 btn-secondary font-sans">Cancelar</button>
-                <button type="submit" className="flex-1 btn-primary font-sans">Salvar</button>
+              <input 
+                type="text" required placeholder="Ex: Fonoaudiologia Infantil" 
+                className="input-field" value={newSpec} onChange={e => setNewSpec(e.target.value)} 
+              />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setIsSpecModalOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
+                <button type="submit" className="flex-1 btn-primary">Salvar</button>
               </div>
             </form>
           </div>
@@ -275,43 +272,39 @@ export function Professionals() {
       )}
 
       {isProfModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full shadow-xl my-auto transition-colors">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 font-sans">{editingProfId ? 'Editar Profissional' : 'Cadastrar Profissional'}</h3>
-            <form onSubmit={handleAddProfessional} className="p-0 space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider mb-1.5 transition-colors">Nome Completo</label>
-                  <input type="text" required className="input-field w-full" value={newProf.name} onChange={e => setNewProf({...newProf, name: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider mb-1.5 transition-colors">E-mail de Trabalho</label>
-                  <input type="email" required className="input-field w-full" value={newProf.email} onChange={e => setNewProf({...newProf, email: e.target.value})} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider mb-2.5 transition-colors">Especialidades Atuantes</p>
-                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl transition-colors">
-                    {specialties.map(spec => (
-                      <label key={spec.id} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg cursor-pointer hover:border-sky-500 transition-all">
-                        <input 
-                          type="checkbox" 
-                          className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 dark:bg-slate-800 dark:border-slate-700"
-                          checked={newProf.specialties.includes(spec.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) setNewProf({...newProf, specialties: [...newProf.specialties, spec.id]});
-                            else setNewProf({...newProf, specialties: newProf.specialties.filter(id => id !== spec.id)});
-                          }}
-                        />
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{spec.name}</span>
-                      </label>
-                    ))}
-                    {specialties.length === 0 && <p className="text-center py-4 text-xs text-slate-400 italic">Cadastre especialidades primeiro.</p>}
-                  </div>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-6">{editingProfId ? 'Editar Profissional' : 'Cadastrar Profissional'}</h3>
+            <form onSubmit={handleAddProfessional} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome</label>
+                <input type="text" required className="input-field" value={newProf.name} onChange={e => setNewProf({...newProf, name: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                <input type="email" required className="input-field" value={newProf.email} onChange={e => setNewProf({...newProf, email: e.target.value})} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2">Especialidades</p>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1">
+                  {specialties.map(spec => (
+                    <label key={spec.id} className="flex items-center gap-2 p-2 border border-slate-100 rounded-lg cursor-pointer hover:bg-slate-50">
+                      <input 
+                        type="checkbox" 
+                        checked={newProf.specialties.includes(spec.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setNewProf({...newProf, specialties: [...newProf.specialties, spec.id]});
+                          else setNewProf({...newProf, specialties: newProf.specialties.filter(id => id !== spec.id)});
+                        }}
+                      />
+                      <span className="text-xs font-medium text-slate-600">{spec.name}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
               <div className="flex gap-2 pt-4">
-                <button type="button" onClick={() => setIsProfModalOpen(false)} className="flex-1 btn-secondary font-sans font-bold">Cancelar</button>
-                <button type="submit" className="flex-1 btn-primary font-sans font-bold">Salvar</button>
+                <button type="button" onClick={() => setIsProfModalOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
+                <button type="submit" className="flex-1 btn-primary">Salvar</button>
               </div>
             </form>
           </div>

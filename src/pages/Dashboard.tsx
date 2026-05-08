@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import { 
   collection, 
   query, 
@@ -35,7 +34,6 @@ import {
 
 export function Dashboard() {
   const { clinic, profile } = useAuth();
-  const { theme } = useTheme();
   const [stats, setStats] = useState({
     patients: 0,
     appointmentsToday: 0,
@@ -163,12 +161,12 @@ export function Dashboard() {
   if (loading) return <div className="p-8">Carregando painel...</div>;
 
   return (
-    <div className="space-y-8 transition-colors duration-300">
+    <div className="space-y-8">
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Olá, {profile?.displayName?.split(' ')[0]}!</h1>
-          <p className="text-slate-500 dark:text-slate-400">Isto é o que está acontecendo na {clinic?.name} hoje.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Olá, {profile?.displayName?.split(' ')[0]}!</h1>
+          <p className="text-slate-500">Isto é o que está acontecendo na {clinic?.name} hoje.</p>
         </div>
         <div className="flex gap-3">
           <Link to="/patients" className="btn-secondary">
@@ -185,35 +183,35 @@ export function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="medical-card p-6 flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Total de Pacientes</p>
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">{stats.patients}</h3>
+            <p className="text-sm font-medium text-slate-500 mb-2">Total de Pacientes</p>
+            <h3 className="text-3xl font-bold text-slate-900">{stats.patients}</h3>
           </div>
-          <div className="p-3 bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 rounded-xl">
+          <div className="p-3 bg-sky-50 text-sky-600 rounded-xl">
             <Users size={24} />
           </div>
         </div>
 
         <div className="medical-card p-6 flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Consultas Hoje</p>
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">{stats.appointmentsToday}</h3>
-            <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500 text-xs mt-2 font-medium">
+            <p className="text-sm font-medium text-slate-500 mb-2">Consultas Hoje</p>
+            <h3 className="text-3xl font-bold text-slate-900">{stats.appointmentsToday}</h3>
+            <div className="flex items-center gap-1 text-slate-400 text-xs mt-2 font-medium">
               <span>Agenda normal</span>
             </div>
           </div>
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl">
+          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
             <CalendarIcon size={24} />
           </div>
         </div>
 
         <div className="medical-card p-6 flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Receita Mensal (Est.)</p>
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
+            <p className="text-sm font-medium text-slate-500 mb-2">Receita Mensal (Est.)</p>
+            <h3 className="text-3xl font-bold text-slate-900">
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.incomeMonth)}
             </h3>
           </div>
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-xl">
+          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
             <TrendingUp size={24} />
           </div>
         </div>
@@ -223,18 +221,18 @@ export function Dashboard() {
         {/* Chart */}
         <div className="medical-card p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-            <h3 className="font-bold text-slate-900 dark:text-white">Evolução Financeira</h3>
+            <h3 className="font-bold text-slate-900">Evolução Financeira</h3>
             <div className="flex items-center gap-2">
               <input 
                 type="date" 
-                className="text-xs bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-1 px-2 focus:ring-0 text-slate-600 dark:text-slate-300 transition-colors"
+                className="text-xs bg-slate-100 border-none rounded-lg py-1 px-2 focus:ring-0"
                 value={chartStartDate}
                 onChange={e => setChartStartDate(e.target.value)}
               />
               <span className="text-slate-400 text-xs">-</span>
               <input 
                 type="date" 
-                className="text-xs bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-1 px-2 focus:ring-0 text-slate-600 dark:text-slate-300 transition-colors"
+                className="text-xs bg-slate-100 border-none rounded-lg py-1 px-2 focus:ring-0"
                 value={chartEndDate}
                 onChange={e => setChartEndDate(e.target.value)}
               />
@@ -243,25 +241,18 @@ export function Dashboard() {
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'dark' ? '#334155' : '#f1f5f9'} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: theme === 'dark' ? '#94a3b8' : '#64748b', fontSize: 12 }}
+                  tick={{ fill: '#64748b', fontSize: 12 }}
                   dy={10}
                 />
                 <YAxis hide />
                 <Tooltip 
-                  cursor={{ fill: theme === 'dark' ? '#1e293b' : '#f8fafc' }}
-                  contentStyle={{ 
-                    backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-                    color: theme === 'dark' ? '#f8fafc' : '#0f172a',
-                    borderRadius: '12px', 
-                    border: 'none', 
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
-                  }}
-                  itemStyle={{ color: theme === 'dark' ? '#f8fafc' : '#0f172a' }}
+                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR')}`]}
                 />
                 {categories.map((cat, index) => (
@@ -281,39 +272,39 @@ export function Dashboard() {
 
         {/* Recent Appointments */}
         <div className="medical-card flex flex-col">
-          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <h3 className="font-bold text-slate-900 dark:text-white">Agendamentos Recentes</h3>
-            <Link to="/calendar" className="text-sky-600 dark:text-sky-400 text-sm font-medium hover:underline flex items-center gap-1">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-bold text-slate-900">Agendamentos Recentes</h3>
+            <Link to="/calendar" className="text-sky-600 text-sm font-medium hover:underline flex items-center gap-1">
               Ver todos
               <ChevronRight size={16} />
             </Link>
           </div>
           <div className="flex-1 overflow-y-auto">
             {recentAppointments.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 dark:text-slate-600">
+              <div className="p-12 text-center text-slate-400">
                 Sem agendamentos recentes.
               </div>
             ) : (
-              <div className="divide-y divide-slate-50 dark:divide-slate-800">
+              <div className="divide-y divide-slate-50">
                 {recentAppointments.map((app) => (
-                  <div key={app.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-between">
+                  <div key={app.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 flex items-center justify-center font-bold transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-bold">
                         {app.patientName?.charAt(0) || 'P'}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{app.patientName || 'Paciente'}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <p className="text-sm font-semibold text-slate-900">{app.patientName || 'Paciente'}</p>
+                        <p className="text-xs text-slate-500">
                           {app.startTime?.toDate().toLocaleDateString()} às {app.startTime?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
                     <span className={`
                       px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
-                      ${app.status === 'scheduled' ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 
-                        app.status === 'completed' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 
-                        app.status === 'waiting' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
-                        'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}
+                      ${app.status === 'scheduled' ? 'bg-sky-100 text-sky-700' : 
+                        app.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
+                        app.status === 'waiting' ? 'bg-amber-100 text-amber-700' :
+                        'bg-slate-100 text-slate-600'}
                     `}>
                       {app.status === 'scheduled' ? 'Agendado' : app.status === 'completed' ? 'Concluído' : app.status === 'waiting' ? 'Aguardando' : 'Outro'}
                     </span>

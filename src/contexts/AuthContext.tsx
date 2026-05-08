@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   onAuthStateChanged, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
   signOut,
   User,
   signInWithEmailAndPassword,
@@ -18,7 +16,6 @@ interface AuthContextType {
   profile: UserProfile | null;
   clinic: Clinic | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string, role: any, clinicId: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -33,11 +30,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfileAndClinic = async (uid: string) => {
+  const fetchProfileAndClinic = async (uid: string, email?: string | null) => {
     try {
       const profileDoc = await getDoc(doc(db, 'users', uid));
+      let profileData: UserProfile | null = null;
+
       if (profileDoc.exists()) {
-        const profileData = profileDoc.data() as UserProfile;
+        profileData = profileDoc.data() as UserProfile;
+        
+        // Principal Admin Auto-Upgrade
+        const principalAdminEmail = 'samuel.g.bagolin@hotmail.com';
+        if (email === principalAdminEmail && profileData.role !== 'clinic_admin') {
+          profileData.role = 'clinic_admin';
+          await setDoc(doc(db, 'users', uid), { role: 'clinic_admin' }, { merge: true });
+        }
+        
         setProfile(profileData);
         
         if (profileData.clinicId) {
@@ -56,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
-        await fetchProfileAndClinic(user.uid);
+        await fetchProfileAndClinic(user.uid, user.email);
       } else {
         setProfile(null);
         setClinic(null);
@@ -67,21 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      await fetchProfileAndClinic(result.user.uid);
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  };
-
   const signInWithEmail = async (email: string, pass: string) => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, pass);
-      await fetchProfileAndClinic(result.user.uid);
+      await fetchProfileAndClinic(result.user.uid, result.user.email);
     } catch (error) {
       console.error('Email login error:', error);
       throw error;
@@ -104,9 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await setDoc(doc(db, 'users', result.user.uid), {
         ...newProfile,
         createdAt: serverTimestamp()
-      });
+      }, { merge: true });
       
-      await fetchProfileAndClinic(result.user.uid);
+      await fetchProfileAndClinic(result.user.uid, result.user.email);
     } catch (error) {
       console.error('Signup error:', error);
       throw error;
@@ -124,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{ 
       user, profile, clinic, loading, 
-      signInWithGoogle, signInWithEmail, signUpWithEmail,
+      signInWithEmail, signUpWithEmail,
       logout, refreshProfile 
     }}>
       {children}

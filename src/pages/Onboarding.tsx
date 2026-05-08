@@ -35,9 +35,10 @@ export function Onboarding() {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || 'Usuário',
-        role: 'admin' as UserRole,
-        clinicId: clinicRef.id
-      });
+        role: 'clinic_admin' as UserRole,
+        clinicId: clinicRef.id,
+        createdAt: new Date()
+      }, { merge: true });
 
       await refreshProfile();
       navigate('/');

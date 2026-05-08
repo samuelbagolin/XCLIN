@@ -11,7 +11,7 @@ import {
   setDoc,
   updateDoc
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   Plus, 
   Stethoscope, 
@@ -49,7 +49,7 @@ export function Professionals() {
       const sSnap = await getDocs(query(collection(db, 'specialties'), where('clinicId', '==', clinic.id)));
       setSpecialties(sSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specialty)));
     } catch (err) {
-      console.error('Error fetching data:', err);
+      handleFirestoreError(err, OperationType.GET, 'professionals/specialties');
     } finally {
       setLoading(false);
     }
@@ -68,11 +68,12 @@ export function Professionals() {
       } else {
         await addDoc(collection(db, 'specialties'), { name: newSpec, clinicId: clinic.id });
       }
-      setNewSpec('');
       setEditingSpecId(null);
       setIsSpecModalOpen(false);
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      handleFirestoreError(err, OperationType.WRITE, 'specialties');
+    }
   };
 
   const handleAddProfessional = async (e: React.FormEvent) => {
@@ -94,7 +95,9 @@ export function Professionals() {
       setEditingProfId(null);
       setIsProfModalOpen(false);
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      handleFirestoreError(err, OperationType.WRITE, 'professionals');
+    }
   };
 
   const handleDeleteSpec = async (id: string) => {
@@ -103,8 +106,7 @@ export function Professionals() {
       setDeleteConfirm(null);
       fetchData();
     } catch (err: any) { 
-      console.error(err);
-      alert('Erro ao excluir especialidade: ' + err.message);
+      handleFirestoreError(err, OperationType.DELETE, `specialties/${id}`);
     }
   };
 
@@ -114,8 +116,7 @@ export function Professionals() {
       setDeleteConfirm(null);
       fetchData();
     } catch (err: any) { 
-      console.error(err);
-      alert('Erro ao excluir profissional: ' + (err.code === 'permission-denied' ? 'Acesso negado' : err.message));
+      handleFirestoreError(err, OperationType.DELETE, `professionals/${id}`);
     }
   };
 

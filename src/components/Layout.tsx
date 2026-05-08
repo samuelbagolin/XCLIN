@@ -25,12 +25,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
   };
 
   const navItems = [
-    { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'professional', 'receptionist'] },
-    { to: '/patients', icon: Users, label: 'Pacientes', roles: ['admin', 'professional', 'receptionist'] },
-    { to: '/calendar', icon: CalendarIcon, label: 'Agenda', roles: ['admin', 'professional', 'receptionist'] },
-    { to: '/professionals', icon: Stethoscope, label: 'Profissionais', roles: ['admin', 'receptionist'] },
-    { to: '/financial', icon: DollarSign, label: 'Financeiro', roles: ['admin'] },
-    { to: '/settings', icon: SettingsIcon, label: 'Configurações', roles: ['admin'] },
+    { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['clinic_admin', 'professional', 'receptionist', 'financial'] },
+    { to: '/patients', icon: Users, label: 'Pacientes', roles: ['clinic_admin', 'professional', 'receptionist'] },
+    { to: '/calendar', icon: CalendarIcon, label: 'Agenda', roles: ['clinic_admin', 'professional', 'receptionist'] },
+    { to: '/professionals', icon: Stethoscope, label: 'Profissionais', roles: ['clinic_admin', 'receptionist'] },
+    { to: '/financial', icon: DollarSign, label: 'Financeiro', roles: ['clinic_admin', 'financial'] },
+    { to: '/settings', icon: SettingsIcon, label: 'Configurações', roles: ['clinic_admin'] },
   ];
 
   const filteredNavItems = navItems.filter(item => 

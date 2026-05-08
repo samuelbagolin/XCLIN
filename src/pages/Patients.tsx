@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Search, Plus, UserPlus, Phone, Mail, Calendar as CalendarIcon, ChevronRight, Edit2, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Patient } from '../types';
@@ -31,7 +31,7 @@ export function Patients() {
       const snap = await getDocs(q);
       setPatients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient)));
     } catch (err) {
-      console.error('Error fetching patients:', err);
+      handleFirestoreError(err, OperationType.GET, 'patients');
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export function Patients() {
       setNewPatient({ name: '', email: '', phone: '', birthDate: '' });
       fetchPatients();
     } catch (err) {
-      console.error('Error adding/updating patient:', err);
+      handleFirestoreError(err, OperationType.WRITE, 'patients');
     }
   };
 
@@ -73,8 +73,7 @@ export function Patients() {
       fetchPatients();
       setConfirmDeleteId(null);
     } catch (err: any) {
-      console.error('Error deleting patient:', err);
-      alert('Erro ao excluir paciente: ' + (err.code === 'permission-denied' ? 'Acesso negado' : err.message));
+      handleFirestoreError(err, OperationType.DELETE, `patients/${id}`);
     }
   };
 

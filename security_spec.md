@@ -3,8 +3,8 @@
 ## Data Invariants
 - Every document must have a `clinicId` (except possibly the `clinics` collection itself which is the root, but I structured it as `/clinics/{clinicId}`).
 - Users can only access data belonging to their `clinicId`.
-- Only `admin` role can manage users and financial data.
-- Medical records are sensitive and primarily managed by `professionals` and `admins`.
+- Only `clinic_admin` role can manage users and financial data.
+- Medical records are sensitive and primarily managed by `professionals` and `clinic_admins`.
 
 ## The "Dirty Dozen" Payloads
 1. Attempt to create a user profile for a different clinic.
@@ -22,4 +22,4 @@
 
 ## Test Runner (Simplified for brevity, but identifying key checks)
 - Verify `allow list` on `/patients` rejects queries WITHOUT `clinicId` filter or unauthorized access.
-- Verify `isValidUserProfile` blocks `role` changes unless by admin.
+- Verify `isValidUserProfile` blocks `role` changes unless by clinic_admin.

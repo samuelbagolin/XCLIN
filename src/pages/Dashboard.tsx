@@ -7,9 +7,10 @@ import {
   getDocs, 
   limit, 
   orderBy,
+  onSnapshot,
   Timestamp 
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   Users, 
   Calendar as CalendarIcon, 
@@ -37,7 +38,9 @@ export function Dashboard() {
   const [stats, setStats] = useState({
     patients: 0,
     appointmentsToday: 0,
-    incomeMonth: 0
+    incomeMonth: 0,
+    receivedMonth: 0,
+    receivable: 0
   });
   const [recentAppointments, setRecentAppointments] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -45,107 +48,117 @@ export function Dashboard() {
   const [chartStartDate, setChartStartDate] = useState('');
   const [chartEndDate, setChartEndDate] = useState('');
 
-  const fetchStats = async () => {
+  useEffect(() => {
     if (!clinic) return;
-    try {
-      // Patients count
-      const pQuery = query(collection(db, 'patients'), where('clinicId', '==', clinic.id));
-      const pSnap = await getDocs(pQuery);
-      
-      // Appointments today
-      const startToday = new Date();
-      startToday.setHours(0,0,0,0);
-      const endToday = new Date();
-      endToday.setHours(23,59,59,999);
-      
-      const aQuery = query(
-        collection(db, 'appointments'), 
-        where('clinicId', '==', clinic.id),
-        where('startTime', '>=', Timestamp.fromDate(startToday)),
-        where('startTime', '<=', Timestamp.fromDate(endToday))
-      );
-      const aSnap = await getDocs(aQuery);
+    setLoading(true);
 
-      // Recent appointments
-      const recentQuery = query(
-        collection(db, 'appointments'),
-        where('clinicId', '==', clinic.id),
-        orderBy('startTime', 'desc'),
-        limit(5)
-      );
-      const recentSnap = await getDocs(recentQuery);
-      
-      // Get unique patient IDs from recent appointments to fetch their names if missing
-      const appDocs = recentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      const patientIds = [...new Set(appDocs.filter(a => !a.patientName).map(a => a.patientId))];
-      
-      let patientMap: Record<string, string> = {};
-      if (patientIds.length > 0) {
-        // Fetch missing patient names
-        const patientsSnap = await getDocs(query(collection(db, 'patients'), where('__name__', 'in', patientIds.slice(0, 10))));
-        patientsSnap.forEach(d => {
-          patientMap[d.id] = d.data().name;
+    // Patients listener
+    const pUnsub = onSnapshot(query(collection(db, 'patients'), where('clinicId', '==', clinic.id)), 
+      (snap) => {
+        setStats(prev => ({ ...prev, patients: snap.size }));
+      }, 
+      (err) => handleFirestoreError(err, OperationType.GET, 'patients')
+    );
+
+    // Main Appointments listener (fetches all for processing to avoid index errors)
+    const aUnsub = onSnapshot(query(collection(db, 'appointments'), where('clinicId', '==', clinic.id)), 
+      (snap) => {
+        const startToday = new Date();
+        startToday.setHours(0,0,0,0);
+        const endToday = new Date();
+        endToday.setHours(23,59,59,999);
+
+        const allApps = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        
+        const appointmentsToday = allApps.filter(app => {
+          const d = app.startTime?.toDate();
+          return d >= startToday && d <= endToday;
         });
+
+        const finalRecent = allApps
+          .sort((a, b) => b.startTime.seconds - a.startTime.seconds)
+          .slice(0, 5)
+          .map(a => ({
+            ...a,
+            patientName: a.patientName || 'Paciente'
+          }));
+
+        setStats(prev => ({ ...prev, appointmentsToday: appointmentsToday.length }));
+        setRecentAppointments(finalRecent);
+      },
+      (err) => handleFirestoreError(err, OperationType.GET, 'appointments')
+    );
+
+    // Financial Transactions listener
+    const fUnsub = onSnapshot(query(collection(db, 'financialTransactions'), where('clinicId', '==', clinic.id)), 
+      (snap) => {
+        const allTrans = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        const incomeTrans = allTrans.filter(t => t.type === 'income');
+
+        const startTodayMonth = new Date();
+        startTodayMonth.setDate(1);
+        startTodayMonth.setHours(0,0,0,0);
+
+        // Total receivable (all pending income ever)
+        const totalReceivable = incomeTrans
+          .filter(t => t.status === 'pending')
+          .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+        // Monthly stats
+        const monthTrans = incomeTrans.filter(t => t.date?.toDate() >= startTodayMonth);
+        const thisMonthTotal = monthTrans.reduce((sum, t) => sum + (t.amount || 0), 0);
+        const thisMonthReceived = monthTrans
+          .filter(t => t.status === 'paid' || !t.status)
+          .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+        // Process chart data
+        const chartTrans = incomeTrans.filter(t => {
+          const d = t.date?.toDate();
+          if (!d) return false;
+          if (chartStartDate && d < new Date(chartStartDate)) return false;
+          if (chartEndDate && d > new Date(chartEndDate + 'T23:59:59')) return false;
+          if (!chartStartDate && !chartEndDate) {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            return d >= thirtyDaysAgo;
+          }
+          return true;
+        });
+
+        const groupedData: Record<string, any> = {};
+        chartTrans.forEach(t => {
+          const d = t.date?.toDate();
+          if (!d) return;
+          const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+          if (!groupedData[key]) groupedData[key] = { name: key };
+          const categoryLabel = t.category || 'Outros';
+          groupedData[key][categoryLabel] = (groupedData[key][categoryLabel] || 0) + (t.amount || 0);
+        });
+
+        const formattedChartData = Object.values(groupedData)
+          .sort((a, b) => a.name.split('/').reverse().join('') > b.name.split('/').reverse().join('') ? 1 : -1);
+
+        setStats(prev => ({ 
+          ...prev, 
+          incomeMonth: thisMonthTotal,
+          receivedMonth: thisMonthReceived,
+          receivable: totalReceivable 
+        }));
+        setChartData(formattedChartData);
+        setLoading(false);
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.GET, 'financialTransactions');
+        setLoading(false);
       }
+    );
 
-      const finalRecent = appDocs.map(a => ({
-        ...a,
-        patientName: a.patientName || patientMap[a.patientId] || 'Paciente'
-      }));
-      
-      // Financial Transactions
-      const fQuery = query(
-        collection(db, 'financialTransactions'),
-        where('clinicId', '==', clinic.id),
-        where('type', '==', 'income')
-      );
-      const fSnap = await getDocs(fQuery);
-      
-      // Filter transactions for chart if dates provided
-      const chartTrans = fSnap.docs.map(d => ({ id: d.id, ...d.data() } as any)).filter(t => {
-        const d = t.date?.toDate();
-        if (!d) return false;
-        if (chartStartDate && d < new Date(chartStartDate)) return false;
-        if (chartEndDate && d > new Date(chartEndDate + 'T23:59:59')) return false;
-        return true;
-      });
-
-      const totalIncome = chartTrans.reduce((sum, t) => sum + (t.amount || 0), 0);
-
-      // Process chart data - Group by date and Category
-      const groupedData: Record<string, any> = {};
-      const categorySet = new Set<string>();
-      
-      chartTrans.forEach(t => {
-        const d = t.date.toDate();
-        const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        if (!groupedData[key]) {
-          groupedData[key] = { name: key };
-        }
-        const categoryLabel = t.category || 'Outros';
-        categorySet.add(categoryLabel);
-        groupedData[key][categoryLabel] = (groupedData[key][categoryLabel] || 0) + t.amount;
-      });
-
-      const formattedChartData = Object.values(groupedData)
-        .sort((a, b) => {
-          return a.name.split('/').reverse().join('') > b.name.split('/').reverse().join('') ? 1 : -1;
-        });
-
-      setStats({
-        patients: pSnap.size,
-        appointmentsToday: aSnap.size,
-        incomeMonth: totalIncome
-      });
-      
-      setChartData(formattedChartData);
-      setRecentAppointments(finalRecent);
-    } catch (err) {
-      console.error('Error fetching dashboard stats:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      pUnsub();
+      aUnsub();
+      fUnsub();
+    };
+  }, [clinic, chartStartDate, chartEndDate]);
 
   // Helper to get unique categories for bars
   const categories: string[] = chartData.length > 0 
@@ -153,10 +166,6 @@ export function Dashboard() {
     : [];
 
   const barColors = ['#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd'];
-
-  useEffect(() => {
-    fetchStats();
-  }, [clinic, chartStartDate, chartEndDate]);
 
   if (loading) return <div className="p-8">Carregando painel...</div>;
 
@@ -180,40 +189,47 @@ export function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="medical-card p-6 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500 mb-2">Total de Pacientes</p>
-            <h3 className="text-3xl font-bold text-slate-900">{stats.patients}</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="medical-card p-5">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-xs font-bold text-slate-500 uppercase">Pacientes</p>
+            <div className="p-2 bg-sky-50 text-sky-600 rounded-lg"><Users size={18} /></div>
           </div>
-          <div className="p-3 bg-sky-50 text-sky-600 rounded-xl">
-            <Users size={24} />
-          </div>
+          <h3 className="text-2xl font-bold text-slate-900">{stats.patients}</h3>
+          <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold">Total cadastrados</p>
         </div>
 
-        <div className="medical-card p-6 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500 mb-2">Consultas Hoje</p>
-            <h3 className="text-3xl font-bold text-slate-900">{stats.appointmentsToday}</h3>
-            <div className="flex items-center gap-1 text-slate-400 text-xs mt-2 font-medium">
-              <span>Agenda normal</span>
-            </div>
+        <div className="medical-card p-5">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-xs font-bold text-slate-500 uppercase">Faturamento Mês</p>
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><TrendingUp size={18} /></div>
           </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-            <CalendarIcon size={24} />
-          </div>
+          <h3 className="text-2xl font-bold text-slate-900">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.incomeMonth)}
+          </h3>
+          <p className="text-[10px] text-indigo-600 mt-1 uppercase font-bold">Previsto este mês</p>
         </div>
 
-        <div className="medical-card p-6 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500 mb-2">Receita Mensal (Est.)</p>
-            <h3 className="text-3xl font-bold text-slate-900">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.incomeMonth)}
-            </h3>
+        <div className="medical-card p-5">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-xs font-bold text-slate-500 uppercase">Total Recebido</p>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><ArrowUpRight size={18} /></div>
           </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-            <TrendingUp size={24} />
+          <h3 className="text-2xl font-bold text-emerald-600">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.receivedMonth)}
+          </h3>
+          <p className="text-[10px] text-emerald-600 mt-1 uppercase font-bold">Já em caixa (mês)</p>
+        </div>
+
+        <div className="medical-card p-5">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-xs font-bold text-slate-500 uppercase">A Receber</p>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><ArrowDownRight size={18} /></div>
           </div>
+          <h3 className="text-2xl font-bold text-amber-600">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.receivable)}
+          </h3>
+          <p className="text-[10px] text-amber-600 mt-1 uppercase font-bold">Pendências totais</p>
         </div>
       </div>
 
@@ -238,9 +254,9 @@ export function Dashboard() {
               />
             </div>
           </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+          <div className="h-64 w-full bg-white rounded-xl overflow-hidden">
+            <ResponsiveContainer width="99%" height={256}>
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis 
                   dataKey="name" 

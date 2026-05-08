@@ -13,7 +13,7 @@ import {
   Timestamp,
   orderBy
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -46,34 +46,43 @@ export function Calendar() {
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+  const [filterProfessionalId, setFilterProfessionalId] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
+
   const fetchData = async () => {
     if (!clinic) return;
     setLoading(true);
     try {
-      // Appointments for selected day
       const startOfDay = new Date(selectedDate);
       startOfDay.setHours(0,0,0,0);
       const endOfDay = new Date(selectedDate);
       endOfDay.setHours(23,59,59,999);
 
+      // Query broad then filter to avoid index requirement
       const q = query(
         collection(db, 'appointments'),
-        where('clinicId', '==', clinic.id),
-        where('startTime', '>=', Timestamp.fromDate(startOfDay)),
-        where('startTime', '<=', Timestamp.fromDate(endOfDay)),
-        orderBy('startTime', 'asc')
+        where('clinicId', '==', clinic.id)
       );
       const snap = await getDocs(q);
-      setAppointments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
+      const allApps = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment));
+      
+      const dayApps = allApps
+        .filter(app => {
+          const d = app.startTime?.toDate();
+          if (!d) return false;
+          return d >= startOfDay && d <= endOfDay;
+        })
+        .sort((a, b) => a.startTime.seconds - b.startTime.seconds);
 
-      // Patients & Professionals for dropdowns
+      setAppointments(dayApps);
+
       const pSnap = await getDocs(query(collection(db, 'patients'), where('clinicId', '==', clinic.id)));
-      setPatients(pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient)));
+      setPatients(pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient)).sort((a,b) => a.name.localeCompare(b.name)));
 
       const profSnap = await getDocs(query(collection(db, 'professionals'), where('clinicId', '==', clinic.id)));
-      setProfessionals(profSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Professional)));
+      setProfessionals(profSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Professional)).sort((a,b) => a.name.localeCompare(b.name)));
     } catch (err) {
-      console.error('Error fetching calendar data:', err);
+      handleFirestoreError(err, OperationType.GET, 'appointments/calendar');
     } finally {
       setLoading(false);
     }
@@ -82,6 +91,12 @@ export function Calendar() {
   useEffect(() => {
     fetchData();
   }, [clinic, selectedDate]);
+
+  const filteredAppointments = appointments.filter(app => {
+    const matchesProf = !filterProfessionalId || app.professionalId === filterProfessionalId;
+    const matchesStatus = !filterStatus || app.status === filterStatus;
+    return matchesProf && matchesStatus;
+  });
 
   const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +143,7 @@ export function Calendar() {
       setEditingAppId(null);
       fetchData();
     } catch (err) {
-      console.error('Error adding/updating appointment:', err);
+      handleFirestoreError(err, OperationType.WRITE, 'appointments');
     }
   };
 
@@ -138,11 +153,9 @@ export function Calendar() {
         status,
         updatedAt: serverTimestamp()
       });
-      console.log(`Status updated to ${status} for ${id}`);
       fetchData();
     } catch (err: any) {
-      console.error('Error updating status:', err);
-      alert('Erro ao atualizar status: ' + err.message);
+      handleFirestoreError(err, OperationType.UPDATE, `appointments/${id}`);
     }
   };
 
@@ -152,8 +165,7 @@ export function Calendar() {
       setDeleteConfirmId(null);
       fetchData();
     } catch (err: any) {
-      console.error('Error deleting appointment:', err);
-      alert('Erro ao excluir agendamento: ' + err.message);
+      handleFirestoreError(err, OperationType.DELETE, `appointments/${id}`);
     }
   };
 
@@ -197,6 +209,28 @@ export function Calendar() {
             </div>
             <button onClick={() => changeDate(1)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-500"><ChevronRight size={20} /></button>
           </div>
+          <div className="flex items-center gap-2">
+            <select 
+              className="text-xs border border-slate-200 rounded-xl py-2 px-3 bg-white focus:ring-2 focus:ring-sky-500/20"
+              value={filterProfessionalId}
+              onChange={e => setFilterProfessionalId(e.target.value)}
+            >
+              <option value="">Todos Profissionais</option>
+              {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <select 
+              className="text-xs border border-slate-200 rounded-xl py-2 px-3 bg-white focus:ring-2 focus:ring-sky-500/20"
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+            >
+              <option value="">Todos Status</option>
+              <option value="scheduled">Agendado</option>
+              <option value="waiting">Aguardando</option>
+              <option value="completed">Concluído</option>
+              <option value="no-show">Faltou</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+          </div>
           <button 
             onClick={() => setIsModalOpen(true)}
             className="btn-primary"
@@ -213,7 +247,7 @@ export function Calendar() {
           <div className="medical-card">
             <div className="divide-y divide-slate-100">
               {timeSlots.map((slot) => {
-                const appAtSlot = appointments.find(app => {
+                const appAtSlot = filteredAppointments.find(app => {
                   const appTime = app.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                   return appTime === slot;
                 });
@@ -350,19 +384,19 @@ export function Calendar() {
             <div className="space-y-4 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Agendamentos</span>
-                <span className="font-bold text-slate-900">{appointments.length}</span>
+                <span className="font-bold text-slate-900">{filteredAppointments.length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Concluídos</span>
-                <span className="font-bold text-emerald-600">{appointments.filter(a => a.status === 'completed').length}</span>
+                <span className="font-bold text-emerald-600">{filteredAppointments.filter(a => a.status === 'completed').length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Aguardando</span>
-                <span className="font-bold text-amber-600">{appointments.filter(a => a.status === 'waiting').length}</span>
+                <span className="font-bold text-amber-600">{filteredAppointments.filter(a => a.status === 'waiting').length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Agendados</span>
-                <span className="font-bold text-sky-600">{appointments.filter(a => a.status === 'scheduled').length}</span>
+                <span className="font-bold text-sky-600">{filteredAppointments.filter(a => a.status === 'scheduled').length}</span>
               </div>
             </div>
           </div>

@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   Timestamp 
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   ArrowLeft,
   Plus, 
@@ -63,6 +63,8 @@ export function PatientDetails() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: 'patient' | 'record' } | null>(null);
 
+  const [financialTransactions, setFinancialTransactions] = useState<any[]>([]);
+
   const fetchData = async () => {
     if (!id || !clinic) return;
     try {
@@ -83,27 +85,53 @@ export function PatientDetails() {
       const q = query(
         collection(db, 'medicalRecords'), 
         where('clinicId', '==', clinic.id),
-        where('patientId', '==', id),
-        orderBy('date', 'desc')
+        where('patientId', '==', id)
       );
       const snap = await getDocs(q);
-      setRecords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MedicalRecord)));
+      setRecords(snap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as MedicalRecord))
+        .sort((a, b) => {
+          const dateA = (a.date as any).seconds || new Date(a.date).getTime();
+          const dateB = (b.date as any).seconds || new Date(b.date).getTime();
+          return dateB - dateA;
+        })
+      );
 
-      // Future appointments (from start of today)
+      // Future appointments (filter in memory to avoid index error)
       const startOfToday = new Date();
       startOfToday.setHours(0,0,0,0);
       
       const fq = query(
         collection(db, 'appointments'),
         where('clinicId', '==', clinic.id),
-        where('patientId', '==', id),
-        where('startTime', '>=', Timestamp.fromDate(startOfToday)),
-        orderBy('startTime', 'asc')
+        where('patientId', '==', id)
       );
       const fSnap = await getDocs(fq);
-      setFutureAppointments(fSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setFutureAppointments(fSnap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .filter(app => {
+          const d = app.startTime?.toDate();
+          return d >= startOfToday;
+        })
+        .sort((a, b) => a.startTime.seconds - b.startTime.seconds)
+      );
+
+      // Financial Transactions for this patient
+      const finSnap = await getDocs(query(
+        collection(db, 'financialTransactions'),
+        where('clinicId', '==', clinic.id),
+        where('patientId', '==', id)
+      ));
+      setFinancialTransactions(finSnap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .sort((a, b) => {
+          const dateA = (a.date as any).seconds || new Date(a.date).getTime();
+          const dateB = (b.date as any).seconds || new Date(b.date).getTime();
+          return dateB - dateA;
+        })
+      );
     } catch (err) {
-      console.error('Error fetching patient data:', err);
+      handleFirestoreError(err, OperationType.GET, 'patients/details');
     } finally {
       setLoading(false);
     }
@@ -338,6 +366,36 @@ export function PatientDetails() {
                   Agendar Agora
                 </button>
               </>
+            )}
+          </div>
+
+          <div className="medical-card p-6 bg-white border border-slate-100 shadow-sm">
+            <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-900">
+              <History size={18} className="text-emerald-600" />
+              Financeiro
+            </h3>
+            {financialTransactions.length > 0 ? (
+              <div className="space-y-3">
+                {financialTransactions.slice(0, 5).map(t => (
+                  <div key={t.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 text-xs text-slate-700">
+                    <div>
+                      <p className="font-bold">{t.date.toDate().toLocaleDateString('pt-BR')}</p>
+                      <p className="text-slate-500">{t.category}</p>
+                    </div>
+                    <span className={`font-bold ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ))}
+                <button 
+                  onClick={() => navigate('/financial')}
+                  className="w-full text-center text-xs font-bold pt-2 text-emerald-600 hover:text-emerald-700 transition-colors"
+                >
+                  Ver Tudo
+                </button>
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm">Nenhum lançamento financeiro para este paciente.</p>
             )}
           </div>
         </div>

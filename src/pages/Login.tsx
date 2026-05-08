@@ -1,28 +1,65 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Stethoscope, Chrome, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Stethoscope, Mail, Lock, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export function Login() {
-  const { user, profile, signInWithGoogle, signInWithEmail, loading } = useAuth();
+  const { user, profile, signInWithEmail, signUpWithEmail, loading } = useAuth();
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   if (!loading && user && profile) {
     return <Navigate to="/" replace />;
   }
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setMessage('');
     setIsSubmitting(true);
     try {
-      await signInWithEmail(email, password);
+      if (isSignUp) {
+        // Sign up as clinic owner (initial setup)
+        await signUpWithEmail(email, password, name, 'clinic_admin', ''); 
+      } else {
+        await signInWithEmail(email, password);
+      }
     } catch (err: any) {
-      setError('E-mail ou senha incorretos.');
+      if (err.code === 'auth/email-already-in-use') {
+        setError('Este e-mail já está em uso.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('A senha deve ter pelo menos 6 caracteres.');
+      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError('E-mail ou senha incorretos.');
+      } else {
+        setError('Ocorreu um erro. Tente novamente.');
+      }
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Informe seu e-mail para recuperar a senha.');
+      return;
+    }
+    setError('');
+    setMessage('');
+    setIsSubmitting(true);
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      const { auth } = await import('../lib/firebase');
+      await sendPasswordResetEmail(auth, email);
+      setMessage('Link de recuperação enviado para o seu e-mail.');
+    } catch (err: any) {
+      setError('Erro ao enviar e-mail de recuperação: ' + err.message);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -74,11 +111,31 @@ export function Login() {
           transition={{ duration: 0.6, delay: 0.2 }}
         >
           <div className="text-center lg:text-left">
-            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Bem-vindo de volta</h2>
-            <p className="text-slate-500 mt-2">Acesse sua conta para gerenciar sua clínica.</p>
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
+              {isSignUp ? 'Crie sua conta' : 'Bem-vindo de volta'}
+            </h2>
+            <p className="text-slate-500 mt-2">
+              {isSignUp ? 'Comece a gerenciar sua clínica hoje mesmo.' : 'Acesse sua conta para gerenciar sua clínica.'}
+            </p>
           </div>
 
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isSignUp && (
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Nome Completo</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Seu nome"
+                    className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">E-mail</label>
               <div className="relative">
@@ -94,45 +151,56 @@ export function Login() {
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="password" 
-                  required 
-                  placeholder="••••••••"
-                  className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                />
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Senha</label>
+                  <button 
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-xs font-bold text-sky-600 hover:text-sky-700 transition-colors"
+                    disabled={isSubmitting}
+                  >
+                    Esqueceu a senha?
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="password" 
+                    required 
+                    placeholder="••••••••"
+                    className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
-            {error && <p className="text-xs font-medium text-rose-600 bg-rose-50 p-3 rounded-lg">{error}</p>}
+          {error && <p className="text-xs font-medium text-rose-600 bg-rose-50 p-3 rounded-lg">{error}</p>}
+          {message && <p className="text-xs font-medium text-emerald-600 bg-emerald-50 p-3 rounded-lg">{message}</p>}
 
             <button 
               type="submit" 
               disabled={isSubmitting}
               className="w-full btn-primary py-3 rounded-xl text-md shadow-lg shadow-sky-600/20 flex items-center justify-center gap-2 group"
             >
-              {isSubmitting ? 'Entrando...' : 'Entrar na conta'}
+              {isSubmitting ? (isSignUp ? 'Criando...' : 'Entrando...') : (isSignUp ? 'Criar minha conta' : 'Entrar na conta')}
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </button>
+
+            <div className="text-center">
+              <button 
+                type="button" 
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-xs font-bold text-sky-600 hover:text-sky-700 transition-colors"
+                disabled={isSubmitting}
+              >
+                {isSignUp ? 'Já tem uma conta? Entre aqui' : 'Não tem uma conta? Registre sua clínica'}
+              </button>
+            </div>
           </form>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-50 px-3 text-slate-400 font-bold">Ou continue com</span></div>
-          </div>
-
-          <button 
-            onClick={signInWithGoogle}
-            className="w-full bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            <Chrome size={20} className="text-sky-600" />
-            Entrar com Google
-          </button>
         </motion.div>
       </div>
     </div>

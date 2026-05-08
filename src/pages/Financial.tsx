@@ -13,7 +13,7 @@ import {
   doc,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   Plus, 
   TrendingUp, 
@@ -54,17 +54,23 @@ export function Financial() {
     try {
       const q = query(
         collection(db, 'financialTransactions'),
-        where('clinicId', '==', clinic.id),
-        orderBy('date', 'desc')
+        where('clinicId', '==', clinic.id)
       );
       const snap = await getDocs(q);
-      setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinancialTransaction)));
+      const allTrans = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinancialTransaction));
+      
+      // Sort in memory to avoid index error
+      setTransactions(allTrans.sort((a, b) => {
+        const dateA = (a.date as any).seconds || new Date(a.date).getTime();
+        const dateB = (b.date as any).seconds || new Date(b.date).getTime();
+        return dateB - dateA;
+      }));
 
       // Fetch patients for selection
       const pSnap = await getDocs(query(collection(db, 'patients'), where('clinicId', '==', clinic.id)));
       setPatients(pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient)).sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
-      console.error('Error fetching data:', err);
+      handleFirestoreError(err, OperationType.GET, 'financialTransactions/patients');
     } finally {
       setLoading(false);
     }
@@ -82,13 +88,15 @@ export function Financial() {
       // Use mid-day to avoid timezone shifting issues when converting from date string
       const transactionDate = new Date(newTrans.date + 'T12:00:00');
       
-      await addDoc(collection(db, 'financialTransactions'), {
+      const payload = {
         ...newTrans,
         amount: Number(newTrans.amount),
         date: Timestamp.fromDate(transactionDate),
         clinicId: clinic.id,
         createdAt: serverTimestamp()
-      });
+      };
+
+      await addDoc(collection(db, 'financialTransactions'), payload);
       setIsModalOpen(false);
       setNewTrans({
         type: 'income',
@@ -102,18 +110,20 @@ export function Financial() {
       });
       fetchData();
     } catch (err: any) {
-      console.error('Error adding transaction:', err);
-      alert('Erro ao salvar lançamento: ' + (err.code === 'permission-denied' ? 'Acesso negado' : err.message));
+      handleFirestoreError(err, OperationType.WRITE, 'financialTransactions');
     }
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
     try {
-      await updateDoc(doc(db, 'financialTransactions', id), { status: newStatus });
+      await updateDoc(doc(db, 'financialTransactions', id), { 
+        status: newStatus,
+        updatedAt: serverTimestamp() 
+      });
       fetchData();
     } catch (err) {
-      console.error('Error updating status:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `financialTransactions/${id}`);
     }
   };
 
@@ -123,8 +133,7 @@ export function Financial() {
       setDeleteConfirmId(null);
       fetchData();
     } catch (err: any) {
-      console.error('Error deleting transaction:', err);
-      alert('Erro ao excluir lançamento: ' + (err.code === 'permission-denied' ? 'Acesso negado (apenas administradores)' : err.message));
+      handleFirestoreError(err, OperationType.DELETE, `financialTransactions/${id}`);
     }
   };
 
@@ -259,7 +268,7 @@ export function Financial() {
               <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold border-b border-slate-100">
                 <th className="px-6 py-4">Data</th>
                 <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Descrição</th>
+                <th className="px-6 py-4">Descrição / Paciente</th>
                 <th className="px-6 py-4">Categoria</th>
                 <th className="px-6 py-4 text-right">Valor</th>
                 <th className="px-6 py-4 text-right">Ações</th>
@@ -290,7 +299,10 @@ export function Financial() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         {t.type === 'income' ? <ArrowUpCircle className="text-emerald-500" size={18} /> : <ArrowDownCircle className="text-red-500" size={18} />}
-                        <span className="font-medium text-slate-800">{t.description}</span>
+                        <div>
+                          <p className="font-medium text-slate-800">{t.description}</p>
+                          {t.patientName && <p className="text-[10px] text-sky-600 font-bold uppercase">{t.patientName}</p>}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">

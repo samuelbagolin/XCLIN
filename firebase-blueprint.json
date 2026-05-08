@@ -15,13 +15,13 @@
     },
     "UserProfile": {
       "title": "User Profile",
-      "description": "Profile data for users (admins, professionals, staff, patients)",
+      "description": "Profile data for users (clinic_admins, professionals, staff, patients)",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
         "displayName": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "professional", "receptionist", "patient"] },
+        "role": { "type": "string", "enum": ["clinic_admin", "professional", "receptionist", "patient", "financial", "secretary"] },
         "clinicId": { "type": "string" },
         "professionalId": { "type": "string", "description": "Linked professional document ID if role is professional" }
       },
@@ -50,7 +50,8 @@
         "phone": { "type": "string" },
         "birthDate": { "type": "string" },
         "clinicId": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "clinicId"]
     },
@@ -60,13 +61,17 @@
       "type": "object",
       "properties": {
         "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
         "professionalId": { "type": "string" },
+        "professionalName": { "type": "string" },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled", "no-show"] },
+        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled", "no-show", "waiting"] },
         "type": { "type": "string" },
         "clinicId": { "type": "string" },
-        "notes": { "type": "string" }
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["patientId", "professionalId", "startTime", "endTime", "status", "clinicId"]
     },
@@ -77,10 +82,12 @@
       "properties": {
         "patientId": { "type": "string" },
         "professionalId": { "type": "string" },
+        "professionalName": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "content": { "type": "string" },
         "category": { "type": "string", "enum": ["evaluation", "evolution", "document"] },
-        "clinicId": { "type": "string" }
+        "clinicId": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["patientId", "professionalId", "date", "content", "category", "clinicId"]
     },
@@ -104,6 +111,9 @@
         "amount": { "type": "number" },
         "date": { "type": "string", "format": "date-time" },
         "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["paid", "pending"] },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
         "linkedAppointmentId": { "type": "string" },
         "clinicId": { "type": "string" }
       },

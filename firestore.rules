@@ -13,21 +13,22 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
-    function hasRole(role) {
-      return isSignedIn() && getUserData().role == role;
-    }
-    
     function isClinicAdmin() {
-      return isSignedIn() && getUserData().role == 'admin';
+      return isSignedIn() && getUserData().role == 'clinic_admin';
     }
     
     function isStaff() {
       let data = getUserData();
-      return isSignedIn() && (data.role == 'admin' || data.role == 'receptionist' || data.role == 'professional');
+      let role = data.role;
+      return isSignedIn() && (role == 'clinic_admin' || role == 'receptionist' || role == 'professional' || role == 'financial' || role == 'secretary');
     }
     
     function userClinicId() {
       return getUserData().clinicId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     // --- Collections ---
@@ -35,7 +36,7 @@ service cloud.firestore {
     // Clinics
     match /clinics/{clinicId} {
       allow get: if isSignedIn(); 
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(clinicId);
       allow update: if isClinicAdmin() && clinicId == userClinicId();
     }
 
@@ -43,7 +44,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn() && (userId == request.auth.uid || isClinicAdmin());
       allow list: if isClinicAdmin() && resource.data.clinicId == userClinicId();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(userId);
       allow update: if (userId == request.auth.uid || isClinicAdmin());
       allow delete: if isClinicAdmin() && resource.data.clinicId == userClinicId();
     }
@@ -58,22 +59,23 @@ service cloud.firestore {
     match /patients/{patientId} {
       allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
       allow create: if isStaff();
-      allow update, delete: if isStaff() && resource.data.clinicId == userClinicId();
+      allow update: if isStaff() && resource.data.clinicId == userClinicId();
+      allow delete: if isClinicAdmin() && resource.data.clinicId == userClinicId();
     }
 
     // Appointments
     match /appointments/{appId} {
       allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
-      allow create: if isStaff();
-      allow update, delete: if isStaff() && resource.data.clinicId == userClinicId();
+      allow create: if isStaff() && request.resource.data.clinicId == userClinicId();
+      allow update: if isStaff() && resource.data.clinicId == userClinicId();
+      allow delete: if isStaff() && resource.data.clinicId == userClinicId();
     }
 
     // Medical Records
     match /medicalRecords/{recordId} {
-      allow get, list: if (hasRole('professional') || isClinicAdmin()) && resource.data.clinicId == userClinicId();
-      allow create: if (hasRole('professional') || isClinicAdmin());
-      allow update, delete: if (hasRole('professional') || isClinicAdmin()) && 
-                    resource.data.clinicId == userClinicId();
+      allow get, list: if (isStaff()) && resource.data.clinicId == userClinicId();
+      allow create: if (isStaff()) && request.resource.data.clinicId == userClinicId();
+      allow update, delete: if (isStaff()) && resource.data.clinicId == userClinicId();
     }
 
     // Specialties
@@ -86,7 +88,7 @@ service cloud.firestore {
     match /financialTransactions/{transId} {
       allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
       allow create: if isStaff() && request.resource.data.clinicId == userClinicId();
-      allow update, delete: if isClinicAdmin() && resource.data.clinicId == userClinicId();
+      allow update, delete: if isStaff() && resource.data.clinicId == userClinicId();
     }
   }
 }

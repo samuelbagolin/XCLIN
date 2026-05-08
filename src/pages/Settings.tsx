@@ -89,7 +89,7 @@ export function Settings() {
         role: newUserRole,
         clinicId: clinic.id,
         createdAt: serverTimestamp()
-      });
+      }, { merge: true });
 
       // Sign out from the secondary app specifically
       await signOut(secondaryAuth);
@@ -219,7 +219,9 @@ export function Settings() {
                   >
                     <option value="professional">Profissional (Fono, Psicólogo...)</option>
                     <option value="receptionist">Secretaria / Atendimento</option>
-                    <option value="admin">Administrador (Gestão total)</option>
+                    <option value="secretary">Secretária</option>
+                    <option value="financial">Financeiro</option>
+                    <option value="clinic_admin">Administrador (Gestão total)</option>
                   </select>
                 </div>
                 <button 
@@ -246,7 +248,7 @@ export function Settings() {
                           <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{u.role}</p>
                         </div>
                       </div>
-                      {u.role !== 'admin' && (
+                      {u.role !== 'clinic_admin' && (
                         <button 
                           onClick={() => setDeleteConfirmUser(u)}
                           className="text-xs text-slate-400 hover:text-red-500 font-medium px-2 py-1 flex items-center gap-1"

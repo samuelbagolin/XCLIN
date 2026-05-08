@@ -1,0 +1,6 @@
+{
+  "name": "XCLIN",
+  "description": "Sistema de gestão para clínicas de fonoaudiologia e saúde, com agendamento online, prontuário eletrônico e controle financeiro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

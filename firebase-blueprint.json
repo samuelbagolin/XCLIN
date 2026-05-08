@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "Clinic": {
+      "title": "Clinic",
+      "description": "Clinic settings and profile",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the clinic" },
+        "logoUrl": { "type": "string", "description": "URL of the clinic logo" },
+        "address": { "type": "string", "description": "Physical address" },
+        "phone": { "type": "string", "description": "Contact phone" },
+        "ownerId": { "type": "string", "description": "User ID of the clinic owner" }
+      },
+      "required": ["name", "ownerId"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Profile data for users (admins, professionals, staff, patients)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "professional", "receptionist", "patient"] },
+        "clinicId": { "type": "string" },
+        "professionalId": { "type": "string", "description": "Linked professional document ID if role is professional" }
+      },
+      "required": ["uid", "email", "role", "clinicId"]
+    },
+    "Professional": {
+      "title": "Professional",
+      "description": "Health professional details",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "specialties": { "type": "array", "items": { "type": "string" } },
+        "clinicId": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "clinicId"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient basic data",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "birthDate": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "clinicId"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Scheduled appointment",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled", "no-show"] },
+        "type": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["patientId", "professionalId", "startTime", "endTime", "status", "clinicId"]
+    },
+    "MedicalRecord": {
+      "title": "Medical Record",
+      "description": "Clinical notes/evolution",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "content": { "type": "string" },
+        "category": { "type": "string", "enum": ["evaluation", "evolution", "document"] },
+        "clinicId": { "type": "string" }
+      },
+      "required": ["patientId", "professionalId", "date", "content", "category", "clinicId"]
+    },
+    "Specialty": {
+      "title": "Specialty",
+      "description": "Clinical specialties",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "clinicId": { "type": "string" }
+      },
+      "required": ["name", "clinicId"]
+    },
+    "FinancialTransaction": {
+      "title": "Financial Transaction",
+      "description": "Income or expense",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" },
+        "linkedAppointmentId": { "type": "string" },
+        "clinicId": { "type": "string" }
+      },
+      "required": ["type", "amount", "date", "clinicId"]
+    }
+  },
+  "firestore": {
+    "/clinics/{clinicId}": {
+      "schema": "Clinic",
+      "description": "Clinic settings"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/professionals/{profId}": {
+      "schema": "Professional",
+      "description": "Professional details"
+    },
+    "/patients/{patientId}": {
+      "schema": "Patient",
+      "description": "Patient data"
+    },
+    "/appointments/{appId}": {
+      "schema": "Appointment",
+      "description": "Clinic appointments"
+    },
+    "/medicalRecords/{recordId}": {
+      "schema": "MedicalRecord",
+      "description": "Patient evolution records"
+    },
+    "/specialties/{specId}": {
+      "schema": "Specialty",
+      "description": "Clinical specialties"
+    },
+    "/financialTransactions/{transId}": {
+      "schema": "FinancialTransaction",
+      "description": "Financial flow"
+    }
+  }
+}

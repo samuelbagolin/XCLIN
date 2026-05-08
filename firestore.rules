@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() { return request.auth != null; }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function hasRole(role) {
+      return isSignedIn() && getUserData().role == role;
+    }
+    
+    function isClinicAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+    
+    function isStaff() {
+      let data = getUserData();
+      return isSignedIn() && (data.role == 'admin' || data.role == 'receptionist' || data.role == 'professional');
+    }
+    
+    function userClinicId() {
+      return getUserData().clinicId;
+    }
+
+    // --- Collections ---
+
+    // Clinics
+    match /clinics/{clinicId} {
+      allow get: if isSignedIn(); 
+      allow create: if isSignedIn();
+      allow update: if isClinicAdmin() && clinicId == userClinicId();
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      allow get: if isSignedIn() && (userId == request.auth.uid || isClinicAdmin());
+      allow list: if isClinicAdmin() && resource.data.clinicId == userClinicId();
+      allow create: if isSignedIn();
+      allow update: if (userId == request.auth.uid || isClinicAdmin());
+      allow delete: if isClinicAdmin() && resource.data.clinicId == userClinicId();
+    }
+
+    // Professionals
+    match /professionals/{profId} {
+      allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
+      allow create, update, delete: if isClinicAdmin();
+    }
+
+    // Patients
+    match /patients/{patientId} {
+      allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
+      allow create: if isStaff();
+      allow update, delete: if isStaff() && resource.data.clinicId == userClinicId();
+    }
+
+    // Appointments
+    match /appointments/{appId} {
+      allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
+      allow create: if isStaff();
+      allow update, delete: if isStaff() && resource.data.clinicId == userClinicId();
+    }
+
+    // Medical Records
+    match /medicalRecords/{recordId} {
+      allow get, list: if (hasRole('professional') || isClinicAdmin()) && resource.data.clinicId == userClinicId();
+      allow create: if (hasRole('professional') || isClinicAdmin());
+      allow update, delete: if (hasRole('professional') || isClinicAdmin()) && 
+                    resource.data.clinicId == userClinicId();
+    }
+
+    // Specialties
+    match /specialties/{specId} {
+      allow get, list: if isSignedIn() && resource.data.clinicId == userClinicId();
+      allow create, update, delete: if isClinicAdmin();
+    }
+
+    // Financial Transactions
+    match /financialTransactions/{transId} {
+      allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
+      allow create: if isStaff() && request.resource.data.clinicId == userClinicId();
+      allow update, delete: if isClinicAdmin() && resource.data.clinicId == userClinicId();
+    }
+  }
+}

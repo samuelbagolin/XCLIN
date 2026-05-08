@@ -251,18 +251,18 @@ export function PatientDetails() {
   if (!patient) return <div className="p-8">Paciente não encontrado.</div>;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="max-w-5xl mx-auto space-y-8 transition-colors duration-300">
       {/* Header */}
       <div className="flex items-center gap-4">
         <button 
           onClick={() => navigate('/patients')}
-          className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 transition-colors"
         >
           <ArrowLeft size={24} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{patient.name}</h1>
-          <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-sans transition-colors">{patient.name}</h1>
+          <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400 mt-1 transition-colors">
             <span className="flex items-center gap-1.5"><History size={14} /> {new Date().getFullYear() - new Date(patient.birthDate + 'T12:00:00').getFullYear()} anos</span>
             <span className="flex items-center gap-1.5"><CalendarIcon size={14} /> Nascido em {patient.birthDate.split('-').reverse().join('/')}</span>
           </div>
@@ -273,18 +273,18 @@ export function PatientDetails() {
         {/* Sidebar Info */}
         <div className="space-y-6">
           <div className="medical-card p-6">
-            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2 font-sans transition-colors">
               <User size={18} className="text-sky-600" />
               Informações do Paciente
             </h3>
             <div className="space-y-4 text-sm">
               <div>
-                <p className="text-slate-400 mb-1">E-mail</p>
-                <p className="text-slate-700 font-medium">{patient.email}</p>
+                <p className="text-slate-400 dark:text-slate-500 mb-1 transition-colors">E-mail</p>
+                <p className="text-slate-700 dark:text-slate-300 font-medium transition-colors">{patient.email}</p>
               </div>
               <div>
-                <p className="text-slate-400 mb-1">Telefone</p>
-                <p className="text-slate-700 font-medium">{patient.phone}</p>
+                <p className="text-slate-400 dark:text-slate-500 mb-1 transition-colors">Telefone</p>
+                <p className="text-slate-700 dark:text-slate-300 font-medium transition-colors">{patient.phone}</p>
               </div>
               <div className="pt-4 flex gap-2">
                 <button 
@@ -295,7 +295,7 @@ export function PatientDetails() {
                 </button>
                 <button 
                   onClick={() => setDeleteConfirm({ id: patient.id, type: 'patient' })}
-                  className="p-2 border border-rose-200 text-rose-500 rounded-lg hover:bg-rose-50 transition-colors"
+                  className="p-2 border border-rose-200 dark:border-rose-900 text-rose-500 dark:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
                   title="Excluir Paciente"
                 >
                   <Trash2 size={16} />
@@ -304,18 +304,18 @@ export function PatientDetails() {
             </div>
           </div>
           
-          <div className="medical-card p-6 bg-white border border-slate-100 shadow-sm">
-            <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-900">
+          <div className="medical-card p-6 bg-white dark:bg-slate-900 transition-colors">
+            <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-white font-sans">
               <CalendarIcon size={18} className="text-sky-600" />
               Próximas Consultas
             </h3>
             {futureAppointments.length > 0 ? (
               <div className="space-y-3">
                 {futureAppointments.slice(0, 3).map(app => (
-                  <div key={app.id} className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-xs text-slate-700">
-                    <p className="font-bold text-slate-900">{app.startTime.toDate().toLocaleDateString('pt-BR')}</p>
-                    <p className="text-slate-500 font-medium">{app.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {app.type}</p>
-                    <p className="mt-1 flex items-center gap-1 text-slate-400 font-medium">
+                  <div key={app.id} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-lg p-3 text-xs text-slate-700 dark:text-slate-300 transition-colors">
+                    <p className="font-bold text-slate-900 dark:text-white">{app.startTime.toDate().toLocaleDateString('pt-BR')}</p>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">{app.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {app.type}</p>
+                    <p className="mt-1 flex items-center gap-1 text-slate-400 dark:text-slate-500 font-medium">
                       <Stethoscope size={10} />
                       {app.professionalName}
                     </p>
@@ -323,14 +323,14 @@ export function PatientDetails() {
                 ))}
                 <button 
                   onClick={() => navigate('/calendar')}
-                  className="w-full text-center text-xs font-bold pt-2 text-sky-600 hover:text-sky-700 transition-colors"
+                  className="w-full text-center text-xs font-bold pt-2 text-sky-600 dark:text-sky-400 hover:text-sky-700 transition-colors"
                 >
                   Ver Agenda Completa
                 </button>
               </div>
             ) : (
               <>
-                <p className="text-slate-500 text-sm mb-4">Ainda não há agendamentos futuros para este paciente.</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 transition-colors">Ainda não há agendamentos futuros para este paciente.</p>
                 <button 
                   onClick={() => navigate('/calendar')}
                   className="w-full bg-sky-600 hover:bg-sky-700 text-white font-medium py-2 rounded-lg text-sm transition-colors shadow-lg shadow-sky-600/20"
@@ -345,11 +345,11 @@ export function PatientDetails() {
         {/* Medical History */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-slate-900">Histórico de Evolução</h3>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white font-sans transition-colors">Histórico de Evolução</h3>
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setIsExportModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
           >
             <Download size={18} />
             Exportar
@@ -378,25 +378,25 @@ export function PatientDetails() {
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <form onSubmit={handleSaveRecord} className="medical-card p-6 border-sky-200 bg-sky-50/30 space-y-4">
+                <form onSubmit={handleSaveRecord} className="medical-card p-6 border-sky-200 dark:border-sky-800 bg-sky-50/30 dark:bg-sky-900/10 space-y-4">
                   <div className="flex items-center gap-4 mb-2">
                     <button 
                       type="button"
                       onClick={() => setRecordCategory('evolution')}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${recordCategory === 'evolution' ? 'bg-sky-600 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${recordCategory === 'evolution' ? 'bg-sky-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}
                     >
                       Evolução
                     </button>
                     <button 
                       type="button"
                       onClick={() => setRecordCategory('evaluation')}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${recordCategory === 'evaluation' ? 'bg-sky-600 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${recordCategory === 'evaluation' ? 'bg-sky-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}
                     >
                       Avaliação
                     </button>
                   </div>
                   <textarea 
-                    className="w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all min-h-[150px]"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all min-h-[150px]"
                     placeholder="Descreva a evolução do paciente nesta sessão..."
                     value={newRecordContent}
                     onChange={(e) => setNewRecordContent(e.target.value)}
@@ -413,48 +413,48 @@ export function PatientDetails() {
             )}
           </AnimatePresence>
 
-          <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-slate-200 before:via-slate-200 before:to-transparent">
+          <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-slate-200 dark:before:from-slate-800 before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
             {records.length === 0 ? (
-              <div className="medical-card p-12 text-center text-slate-400 relative ml-12">
+              <div className="medical-card p-12 text-center text-slate-400 dark:text-slate-500 relative ml-12 transition-colors">
                 Nenhum registro encontrado para este paciente.
               </div>
             ) : (
               records.map((record) => (
                 <div key={record.id} className="relative flex items-start group ml-12 lg:ml-0">
-                  <div className="absolute -left-12 mt-1.5 w-4 h-4 rounded-full border-4 border-white bg-sky-500 shadow-sm z-10 hidden lg:block" style={{ marginLeft: '17px' }}></div>
+                  <div className="absolute -left-12 mt-1.5 w-4 h-4 rounded-full border-4 border-white dark:border-slate-950 bg-sky-500 shadow-sm z-10 hidden lg:block" style={{ marginLeft: '17px' }}></div>
                   <div className="medical-card p-6 space-y-4 w-full">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
+                        <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-colors">
                           <FileText size={20} />
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-900 capitalize">{record.category === 'evolution' ? 'Evolução' : 'Avaliação'}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-sm font-bold text-slate-900 dark:text-white capitalize transition-colors">{record.category === 'evolution' ? 'Evolução' : 'Avaliação'}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">
                             {record.date?.toDate().toLocaleDateString('pt-BR')} às {record.date?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right hidden sm:block">
-                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Profissional</p>
-                          <p className="text-xs text-slate-600 font-medium">{(record as any).professionalName || 'Profissional'}</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider transition-colors">Profissional</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 font-medium transition-colors">{(record as any).professionalName || 'Profissional'}</p>
                         </div>
                         <div className="relative group/menu">
-                          <button className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
+                          <button className="p-2 text-slate-300 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-400 transition-colors">
                             <MoreVertical size={18} />
                           </button>
                           <div className="absolute right-0 top-full pt-1 z-20 hidden group-hover/menu:block min-w-[120px]">
-                            <div className="bg-white shadow-lg rounded-xl border border-slate-100 py-1">
+                            <div className="bg-white dark:bg-slate-900 shadow-lg rounded-xl border border-slate-100 dark:border-slate-800 py-1 transition-colors">
                               <button 
                                 onClick={() => handleEditRecord(record)}
-                                className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                                className="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                               >
                                 Editar
                               </button>
                               <button 
                                 onClick={() => setDeleteConfirm({ id: record.id, type: 'record' })}
-                                className="w-full text-left px-4 py-2 text-xs font-medium text-rose-600 hover:bg-slate-50 transition-colors"
+                                className="w-full text-left px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                               >
                                 Excluir
                               </button>
@@ -463,7 +463,7 @@ export function PatientDetails() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap bg-slate-50/50 p-4 rounded-lg border border-slate-100">
+                    <div className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap bg-slate-50/50 dark:bg-slate-800/30 p-4 rounded-lg border border-slate-100 dark:border-slate-800 transition-colors">
                       {record.content}
                     </div>
                   </div>
@@ -477,10 +477,10 @@ export function PatientDetails() {
       {/* Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transition-all">
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Excluir {deleteConfirm.type === 'patient' ? 'Paciente' : 'Registro'}?</h3>
-            <p className="text-sm text-slate-500 mb-6">Tem certeza que deseja remover este item? Esta ação não pode ser desfeita.</p>
-            <div className="flex gap-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl transition-all">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 font-sans">Excluir {deleteConfirm.type === 'patient' ? 'Paciente' : 'Registro'}?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 font-sans">Tem certeza que deseja remover este item? Esta ação não pode ser desfeita.</p>
+            <div className="flex gap-3 font-sans">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 btn-secondary">Cancelar</button>
               <button 
                 onClick={() => deleteConfirm.type === 'patient' ? handleDeletePatient() : handleDeleteRecord(deleteConfirm.id)} 
@@ -495,48 +495,50 @@ export function PatientDetails() {
       
       {/* Edit Patient Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Editar Cadastro</h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-lg w-full overflow-hidden my-auto transition-colors">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white font-sans">Editar Cadastro</h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                 <Plus className="rotate-45" size={24} />
               </button>
             </div>
             <form onSubmit={handleUpdatePatient} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
-                <input 
-                  type="text" required className="input-field"
-                  value={editForm.name}
-                  onChange={e => setEditForm({...editForm, name: e.target.value})}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 transition-colors">Nome Completo</label>
                   <input 
-                    type="email" required className="input-field"
-                    value={editForm.email}
-                    onChange={e => setEditForm({...editForm, email: e.target.value})}
+                    type="text" required className="input-field w-full"
+                    value={editForm.name}
+                    onChange={e => setEditForm({...editForm, name: e.target.value})}
                   />
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 transition-colors">E-mail</label>
+                    <input 
+                      type="email" required className="input-field w-full"
+                      value={editForm.email}
+                      onChange={e => setEditForm({...editForm, email: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 transition-colors">Telefone / WhatsApp</label>
+                    <input 
+                      type="text" required className="input-field w-full"
+                      value={editForm.phone}
+                      onChange={e => setEditForm({...editForm, phone: e.target.value})}
+                    />
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Telefone / WhatsApp</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 transition-colors">Data de Nascimento</label>
                   <input 
-                    type="text" required className="input-field"
-                    value={editForm.phone}
-                    onChange={e => setEditForm({...editForm, phone: e.target.value})}
+                    type="date" required className="input-field w-full"
+                    value={editForm.birthDate}
+                    onChange={e => setEditForm({...editForm, birthDate: e.target.value})}
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Data de Nascimento</label>
-                <input 
-                  type="date" required className="input-field"
-                  value={editForm.birthDate}
-                  onChange={e => setEditForm({...editForm, birthDate: e.target.value})}
-                />
               </div>
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
@@ -549,32 +551,32 @@ export function PatientDetails() {
 
       {/* Export Modal */}
       {isExportModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-6">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-6 my-auto transition-colors">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Exportar Prontuário</h3>
-              <button onClick={() => setIsExportModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white font-sans tracking-tight">Exportar Prontuário</h3>
+              <button onClick={() => setIsExportModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                 <Plus className="rotate-45" size={24} />
               </button>
             </div>
-            <p className="text-sm text-slate-500">Selecione o período para exportar o histórico de evolução.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-sans">Selecione o período para exportar o histórico de evolução.</p>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Deste a data:</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider transition-colors mb-1.5">Desde a data:</label>
                 <input 
-                  type="date" className="input-field" 
+                  type="date" className="input-field w-full" 
                   value={exportStartDate} onChange={e => setExportStartDate(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Até a data:</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider transition-colors mb-1.5">Até a data:</label>
                 <input 
-                  type="date" className="input-field" 
+                  type="date" className="input-field w-full" 
                   value={exportEndDate} onChange={e => setExportEndDate(e.target.value)}
                 />
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-2">
               <button onClick={() => setIsExportModalOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
               <button onClick={handleExport} className="flex-1 btn-primary gap-2">
                 <Printer size={18} />

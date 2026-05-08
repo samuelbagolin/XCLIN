@@ -10,24 +10,26 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     
     function getUserData() {
+      // Returns the user document if it exists, otherwise allows rule evaluation to continue
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
     function hasRole(role) {
-      return isSignedIn() && getUserData().role == role;
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == role;
     }
     
     function isClinicAdmin() {
-      return isSignedIn() && getUserData().role == 'admin';
+      return hasRole('admin');
     }
     
     function isStaff() {
+      if (!isSignedIn() || !exists(/databases/$(database)/documents/users/$(request.auth.uid))) return false;
       let data = getUserData();
-      return isSignedIn() && (data.role == 'admin' || data.role == 'receptionist' || data.role == 'professional');
+      return data.role == 'admin' || data.role == 'receptionist' || data.role == 'professional';
     }
     
     function userClinicId() {
-      return getUserData().clinicId;
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? getUserData().clinicId : null;
     }
 
     // --- Collections ---
@@ -36,7 +38,7 @@ service cloud.firestore {
     match /clinics/{clinicId} {
       allow get: if isSignedIn(); 
       allow create: if isSignedIn();
-      allow update: if isClinicAdmin() && clinicId == userClinicId();
+      allow update: if isClinicAdmin() && (clinicId == userClinicId());
     }
 
     // User Profiles

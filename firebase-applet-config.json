@@ -1,10 +1,11 @@
 {
-  "projectId": "ai-studio-applet-webapp-f32b3",
-  "appId": "1:415079646005:web:c4f48ed11ff33df7bf827c",
-  "apiKey": "AIzaSyDu8C8BpSJt9dVA1SxllCWUnYukk6_xLnY",
-  "authDomain": "ai-studio-applet-webapp-f32b3.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-8da6d4fa-2617-478e-98a4-2d9ba07bbe13",
-  "storageBucket": "ai-studio-applet-webapp-f32b3.firebasestorage.app",
-  "messagingSenderId": "415079646005",
-  "measurementId": ""
+  "apiKey": "AIzaSyBK2yfTbT_dvwccJO87kQIW-2olVkOn7Dc",
+  "authDomain": "gestao-de-clinicas-98097.firebaseapp.com",
+  "databaseURL": "https://gestao-de-clinicas-98097-default-rtdb.firebaseio.com",
+  "projectId": "gestao-de-clinicas-98097",
+  "storageBucket": "gestao-de-clinicas-98097.firebasestorage.app",
+  "messagingSenderId": "1018537528452",
+  "appId": "1:1018537528452:web:477977295bcbc09ed086d1",
+  "measurementId": "G-CZ7B2JF5D5",
+  "firestoreDatabaseId": "(default)"
 }

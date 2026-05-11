@@ -45,6 +45,7 @@ export function Calendar() {
   });
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const [filterProfessionalId, setFilterProfessionalId] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>('');
@@ -201,29 +202,29 @@ export function Calendar() {
           <h1 className="text-2xl font-bold text-slate-900">Agenda</h1>
           <p className="text-slate-500">Acompanhe e gerencie as consultas da clínica.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="bg-white border border-slate-200 rounded-xl flex items-center p-1">
-            <button onClick={() => changeDate(-1)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-500"><ChevronLeft size={20} /></button>
-            <div className="px-4 font-semibold text-slate-700 min-w-[150px] text-center">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl flex items-center p-1 w-full md:w-auto justify-between md:justify-start">
+            <button onClick={() => changeDate(-1)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-500 active:scale-90 transition-transform"><ChevronLeft size={20} /></button>
+            <div className="px-4 font-semibold text-slate-700 min-w-[150px] text-center text-sm md:text-base">
               {selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
             </div>
-            <button onClick={() => changeDate(1)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-500"><ChevronRight size={20} /></button>
+            <button onClick={() => changeDate(1)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-500 active:scale-90 transition-transform"><ChevronRight size={20} /></button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1 md:flex-none">
             <select 
-              className="text-xs border border-slate-200 rounded-xl py-2 px-3 bg-white focus:ring-2 focus:ring-sky-500/20"
+              className="text-xs border border-slate-200 rounded-xl py-2 px-3 bg-white focus:ring-2 focus:ring-sky-500/20 flex-1 md:flex-none"
               value={filterProfessionalId}
               onChange={e => setFilterProfessionalId(e.target.value)}
             >
-              <option value="">Todos Profissionais</option>
+              <option value="">Profissionais</option>
               {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             <select 
-              className="text-xs border border-slate-200 rounded-xl py-2 px-3 bg-white focus:ring-2 focus:ring-sky-500/20"
+              className="text-xs border border-slate-200 rounded-xl py-2 px-3 bg-white focus:ring-2 focus:ring-sky-500/20 flex-1 md:flex-none"
               value={filterStatus}
               onChange={e => setFilterStatus(e.target.value)}
             >
-              <option value="">Todos Status</option>
+              <option value="">Status</option>
               <option value="scheduled">Agendado</option>
               <option value="waiting">Aguardando</option>
               <option value="completed">Concluído</option>
@@ -233,7 +234,7 @@ export function Calendar() {
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="btn-primary"
+            className="btn-primary w-full md:w-auto py-2 h-auto"
           >
             <Plus size={18} />
             Agendar
@@ -303,39 +304,62 @@ export function Calendar() {
                                 'Agendado'
                               } />
                              
-                             <div className="relative group/menu">
-                               <button className="p-2 hover:bg-sky-100 rounded-lg text-sky-400 transition-colors">
+                             <div className="relative">
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setOpenMenuId(openMenuId === appAtSlot.id ? null : appAtSlot.id);
+                                 }}
+                                 className="p-2 hover:bg-sky-100 rounded-lg text-sky-400 transition-colors active:scale-95"
+                               >
                                  <MoreVertical size={18} />
                                </button>
-                               <div className="absolute right-0 top-full pt-1 z-50 hidden group-hover/menu:block min-w-[120px]">
-                                 <div className="bg-white shadow-lg rounded-xl border border-slate-100 py-1">
-                                   <button 
-                                     onClick={() => handleEdit(appAtSlot)}
-                                     className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                                   >
-                                     Editar
-                                   </button>
-                                   <button 
-                                     onClick={() => handleUpdateStatus(appAtSlot.id, 'waiting')}
-                                     className="w-full text-left px-4 py-2 text-xs font-medium text-amber-600 hover:bg-slate-50 transition-colors"
-                                   >
-                                     Confirmar Presença
-                                   </button>
-                                   <button 
-                                     onClick={() => handleUpdateStatus(appAtSlot.id, 'completed')}
-                                     className="w-full text-left px-4 py-2 text-xs font-medium text-emerald-600 hover:bg-slate-50 transition-colors"
-                                   >
-                                     Concluir
-                                   </button>
-                                   <div className="border-t border-slate-100 my-1"></div>
-                                   <button 
-                                     onClick={() => setDeleteConfirmId(appAtSlot.id)}
-                                     className="w-full text-left px-4 py-2 text-xs font-medium text-rose-600 hover:bg-slate-50 transition-colors"
-                                   >
-                                     Excluir
-                                   </button>
-                                 </div>
-                               </div>
+                               {openMenuId === appAtSlot.id && (
+                                 <>
+                                   <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
+                                   <div className="absolute right-0 top-full pt-1 z-50 min-w-[160px]">
+                                     <div className="bg-white shadow-xl rounded-xl border border-slate-200 py-2 animate-in fade-in zoom-in duration-200 origin-top-right">
+                                       <button 
+                                         onClick={() => {
+                                           handleEdit(appAtSlot);
+                                           setOpenMenuId(null);
+                                         }}
+                                         className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                                       >
+                                         Editar
+                                       </button>
+                                       <button 
+                                         onClick={() => {
+                                           handleUpdateStatus(appAtSlot.id, 'waiting');
+                                           setOpenMenuId(null);
+                                         }}
+                                         className="w-full text-left px-4 py-2.5 text-sm font-semibold text-amber-600 hover:bg-slate-50 transition-colors"
+                                       >
+                                         Confirmar Presença
+                                       </button>
+                                       <button 
+                                         onClick={() => {
+                                           handleUpdateStatus(appAtSlot.id, 'completed');
+                                           setOpenMenuId(null);
+                                         }}
+                                         className="w-full text-left px-4 py-2.5 text-sm font-semibold text-emerald-600 hover:bg-slate-50 transition-colors"
+                                       >
+                                         Concluir
+                                       </button>
+                                       <div className="border-t border-slate-100 my-1"></div>
+                                       <button 
+                                         onClick={() => {
+                                           setDeleteConfirmId(appAtSlot.id);
+                                           setOpenMenuId(null);
+                                         }}
+                                         className="w-full text-left px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-slate-50 transition-colors"
+                                       >
+                                         Excluir
+                                       </button>
+                                     </div>
+                                   </div>
+                                 </>
+                               )}
                              </div>
                           </div>
                         </div>

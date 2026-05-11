@@ -62,7 +62,7 @@ export function PatientDetails() {
   });
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: 'patient' | 'record' } | null>(null);
-
+  const [openRecordMenuId, setOpenRecordMenuId] = useState<string | null>(null);
   const [financialTransactions, setFinancialTransactions] = useState<any[]>([]);
 
   const fetchData = async () => {
@@ -498,26 +498,43 @@ export function PatientDetails() {
                           <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Profissional</p>
                           <p className="text-xs text-slate-600 font-medium">{(record as any).professionalName || 'Profissional'}</p>
                         </div>
-                        <div className="relative group/menu">
-                          <button className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenRecordMenuId(openRecordMenuId === record.id ? null : record.id);
+                            }}
+                            className="p-2 text-slate-300 hover:text-slate-600 transition-colors active:scale-95"
+                          >
                             <MoreVertical size={18} />
                           </button>
-                          <div className="absolute right-0 top-full pt-1 z-20 hidden group-hover/menu:block min-w-[120px]">
-                            <div className="bg-white shadow-lg rounded-xl border border-slate-100 py-1">
-                              <button 
-                                onClick={() => handleEditRecord(record)}
-                                className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                              >
-                                Editar
-                              </button>
-                              <button 
-                                onClick={() => setDeleteConfirm({ id: record.id, type: 'record' })}
-                                className="w-full text-left px-4 py-2 text-xs font-medium text-rose-600 hover:bg-slate-50 transition-colors"
-                              >
-                                Excluir
-                              </button>
-                            </div>
-                          </div>
+                          {openRecordMenuId === record.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setOpenRecordMenuId(null)} />
+                              <div className="absolute right-0 top-full pt-1 z-20 min-w-[120px]">
+                                <div className="bg-white shadow-xl rounded-xl border border-slate-200 py-1 animate-in fade-in zoom-in duration-200 origin-top-right">
+                                  <button 
+                                    onClick={() => {
+                                      handleEditRecord(record);
+                                      setOpenRecordMenuId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      setDeleteConfirm({ id: record.id, type: 'record' });
+                                      setOpenRecordMenuId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-slate-50 transition-colors"
+                                  >
+                                    Excluir
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -72,12 +72,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="p-4 border-t border-slate-100">
           <div className="flex items-center gap-3 px-4 py-3 mb-2">
-            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold uppercase">
-              {profile?.displayName?.charAt(0) || profile?.email?.charAt(0)}
+            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold uppercase overflow-hidden">
+              {profile?.photoURL ? (
+                <img src={profile.photoURL} alt={profile.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                profile?.displayName?.charAt(0) || profile?.email?.charAt(0)
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-slate-800 truncate">{profile?.displayName}</p>
-              <p className="text-xs text-slate-500 truncate capitalize">{profile?.role}</p>
+              <p className="text-[10px] text-slate-500 truncate uppercase font-medium">{profile?.role}</p>
             </div>
           </div>
           <button
@@ -144,15 +148,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
               className="fixed inset-y-0 left-0 w-72 bg-white z-50 md:hidden flex flex-col shadow-2xl"
             >
               <div className="p-6 flex items-center justify-between border-b border-slate-100">
-                <span className="font-bold text-xl text-sky-600">XCLIN</span>
+                <div className="flex items-center gap-2">
+                   {clinic?.logoUrl ? (
+                    <img src={clinic.logoUrl} alt={clinic.name} className="w-8 h-8 object-contain rounded" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-8 h-8 bg-sky-600 rounded flex items-center justify-center text-white font-bold">X</div>
+                  )}
+                  <span className="font-bold text-xl text-sky-600 truncate">{clinic?.name || 'XCLIN'}</span>
+                </div>
                 <button 
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"
+                  className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg active:scale-95 transition-transform"
                 >
                   <X size={24} />
                 </button>
               </div>
-              <nav className="flex-1 px-4 py-6 space-y-1">
+              <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
                 {filteredNavItems.map((item) => (
                   <NavLink
                     key={item.to}
@@ -170,10 +181,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </NavLink>
                 ))}
               </nav>
-              <div className="p-6 border-t border-slate-100">
-                 <button
+              <div className="p-6 border-t border-slate-100 space-y-4">
+                <div className="flex items-center gap-3 px-4 py-2">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase overflow-hidden ring-2 ring-white">
+                    {profile?.photoURL ? (
+                      <img src={profile.photoURL} alt={profile.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      profile?.displayName?.charAt(0) || profile?.email?.charAt(0)
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-bold text-slate-800 truncate">{profile?.displayName}</p>
+                    <p className="text-xs text-slate-500 truncate uppercase font-medium">{profile?.role}</p>
+                  </div>
+                </div>
+                <button
                   onClick={handleLogout}
-                  className="flex items-center gap-3 w-full px-4 py-4 text-base font-medium text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                  className="flex items-center gap-3 w-full px-4 py-4 text-base font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors active:scale-[0.98]"
                 >
                   <LogOut size={22} />
                   Sair

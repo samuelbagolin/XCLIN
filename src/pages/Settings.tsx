@@ -13,16 +13,25 @@ import {
   Shield, 
   Mail,
   UserCheck,
-  Trash2
+  Trash2,
+  User,
+  Key
 } from 'lucide-react';
 import { UserRole } from '../types';
 
 export function Settings() {
-  const { clinic, refreshProfile } = useAuth();
+  const { profile, clinic, refreshProfile } = useAuth();
   const [clinicName, setClinicName] = useState(clinic?.name || '');
   const [logoUrl, setLogoUrl] = useState(clinic?.logoUrl || '');
+  
+  // Personal Profile
+  const [personalName, setPersonalName] = useState(profile?.displayName || '');
+  const [personalPhoto, setPersonalPhoto] = useState(profile?.photoURL || '');
+  const [newPassword, setNewPassword] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [personalMessage, setPersonalMessage] = useState('');
 
   // User management
   const [newUserName, setNewUserName] = useState('');
@@ -122,14 +131,112 @@ export function Settings() {
     }
   };
 
+  const handleUpdatePersonal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    setLoading(true);
+    setPersonalMessage('');
+    try {
+      const { updatePassword } = await import('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (user) {
+        await updateProfile(user, {
+          displayName: personalName,
+          photoURL: personalPhoto
+        });
+
+        if (newPassword) {
+          await updatePassword(user, newPassword);
+        }
+
+        await updateDoc(doc(db, 'users', profile.uid), {
+          displayName: personalName,
+          photoURL: personalPhoto
+        });
+
+        setPersonalMessage('Perfil atualizado com sucesso!');
+        await refreshProfile();
+        setNewPassword('');
+        setTimeout(() => setPersonalMessage(''), 3000);
+      }
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/requires-recent-login') {
+        setPersonalMessage('Para alterar a senha, você precisa fazer login novamente recentemente.');
+      } else {
+        setPersonalMessage('Erro ao atualizar perfil: ' + err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-12">
+    <div className="max-w-4xl mx-auto space-y-12 pb-12">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Configurações</h1>
         <p className="text-slate-500">Mantenha os dados da sua clínica e usuários atualizados.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Personal Profile */}
+        <div className="space-y-6">
+          <div className="medical-card p-6">
+            <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <User size={20} className="text-sky-600" />
+              Meu Perfil
+            </h3>
+            <form onSubmit={handleUpdatePersonal} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Seu Nome</label>
+                <input 
+                  type="text" required className="input-field" 
+                  value={personalName} onChange={e => setPersonalName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">URL da sua Foto</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="url" className="input-field flex-1" 
+                    placeholder="https://exemplo.com/foto.png"
+                    value={personalPhoto} onChange={e => setPersonalPhoto(e.target.value)}
+                  />
+                  {personalPhoto && (
+                    <div className="w-10 h-10 border border-slate-200 rounded-full overflow-hidden bg-slate-50">
+                      <img src={personalPhoto} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
+                  <Key size={14} /> Nova Senha (opcional)
+                </label>
+                <input 
+                  type="password" 
+                  className="input-field" 
+                  placeholder="Deixe em branco para manter a atual"
+                  value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                />
+              </div>
+              {personalMessage && (
+                <p className={`text-xs font-medium ${personalMessage.includes('Erro') ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  {personalMessage}
+                </p>
+              )}
+              <div className="pt-2">
+                <button type="submit" disabled={loading} className="btn-primary w-full">
+                  <Save size={18} />
+                  Salvar Meu Perfil
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
         {/* Clinic Info */}
         <div className="space-y-6">
           <div className="medical-card p-6">
@@ -240,11 +347,15 @@ export function Settings() {
                   {users.map(u => (
                     <div key={u.id} className="py-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold uppercase">
-                          {u.displayName?.charAt(0)}
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold uppercase overflow-hidden">
+                          {u.photoURL ? (
+                            <img src={u.photoURL} alt={u.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            u.displayName?.charAt(0)
+                          )}
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">{u.displayName}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 truncate">{u.displayName}</p>
                           <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{u.role}</p>
                         </div>
                       </div>

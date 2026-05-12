@@ -9,9 +9,10 @@
         "logoUrl": { "type": "string", "description": "URL of the clinic logo" },
         "address": { "type": "string", "description": "Physical address" },
         "phone": { "type": "string", "description": "Contact phone" },
-        "ownerId": { "type": "string", "description": "User ID of the clinic owner" }
+        "ownerId": { "type": "string", "description": "User ID of the clinic owner" },
+        "status": { "type": "string", "enum": ["active", "blocked", "suspended"], "description": "Account status" }
       },
-      "required": ["name", "ownerId"]
+      "required": ["name", "ownerId", "status"]
     },
     "UserProfile": {
       "title": "User Profile",

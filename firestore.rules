@@ -10,25 +10,40 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
+    }
+    
+    function isClinicActive() {
+      let uData = getUserData();
+      if (uData == null || !uData.keys().contains('clinicId') || uData.get('clinicId', '') == '') {
+        return true;
+      }
+      let cPath = /databases/$(database)/documents/clinics/$(uData.clinicId);
+      return exists(cPath) && get(cPath).data.get('status', '') == 'active';
     }
     
     function isClinicAdmin() {
-      return isSignedIn() && getUserData().role == 'clinic_admin';
+      let uData = getUserData();
+      return isSignedIn() && uData != null && uData.get('role', '') == 'clinic_admin' && isClinicActive();
     }
     
     function isStaff() {
-      let data = getUserData();
-      let role = data.role;
-      return isSignedIn() && (role == 'clinic_admin' || role == 'receptionist' || role == 'professional' || role == 'financial' || role == 'secretary');
+      let uData = getUserData();
+      if (uData == null) return false;
+      let role = uData.get('role', '');
+      return isSignedIn() && 
+             isClinicActive() &&
+             (role == 'clinic_admin' || role == 'receptionist' || role == 'professional' || role == 'financial' || role == 'secretary');
     }
     
     function userClinicId() {
-      return getUserData().clinicId;
+      let uData = getUserData();
+      return uData != null ? uData.get('clinicId', '') : '';
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128;
     }
 
     // --- Collections ---
@@ -36,17 +51,18 @@ service cloud.firestore {
     // Clinics
     match /clinics/{clinicId} {
       allow get: if isSignedIn(); 
-      allow create: if isSignedIn() && isValidId(clinicId);
-      allow update: if isClinicAdmin() && clinicId == userClinicId();
+      allow create: if isSignedIn() && isValidId(clinicId) && request.resource.data.status == 'active';
+      allow update: if isClinicAdmin() && clinicId == userClinicId() && 
+                    request.resource.data.status == resource.data.status; // Admins can't unblock themselves
     }
 
     // User Profiles
     match /users/{userId} {
       allow get: if isSignedIn() && (userId == request.auth.uid || isClinicAdmin());
-      allow list: if isClinicAdmin() && resource.data.clinicId == userClinicId();
-      allow create: if isSignedIn() && isValidId(userId);
-      allow update: if (userId == request.auth.uid || isClinicAdmin());
-      allow delete: if isClinicAdmin() && resource.data.clinicId == userClinicId();
+      allow list: if isClinicAdmin() && resource.data.get('clinicId', '') == userClinicId();
+      allow create: if isSignedIn(); 
+      allow update: if isSignedIn() && (userId == request.auth.uid || isClinicAdmin());
+      allow delete: if isClinicAdmin() && resource.data.get('clinicId', '') == userClinicId();
     }
 
     // Professionals

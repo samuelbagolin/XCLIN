@@ -14,7 +14,7 @@ export function Onboarding() {
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
-    if (profile) navigate('/');
+    if (profile && profile.clinicId) navigate('/');
   }, [profile, navigate]);
 
   const handleCreateClinic = async (e: React.FormEvent) => {
@@ -27,6 +27,7 @@ export function Onboarding() {
       const clinicRef = await addDoc(collection(db, 'clinics'), {
         name: clinicName,
         ownerId: user.uid,
+        status: 'active',
         createdAt: new Date()
       });
 

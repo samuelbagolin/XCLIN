@@ -42,20 +42,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const principalAdminEmail = 'samuel.g.bagolin@hotmail.com';
         if (email === principalAdminEmail && profileData.role !== 'clinic_admin') {
           profileData.role = 'clinic_admin';
-          await setDoc(doc(db, 'users', uid), { role: 'clinic_admin' }, { merge: true });
-        }
-        
-        setProfile(profileData);
-        
-        if (profileData.clinicId) {
-          const clinicDoc = await getDoc(doc(db, 'clinics', profileData.clinicId));
-          if (clinicDoc.exists()) {
-            setClinic({ id: clinicDoc.id, ...clinicDoc.data() } as Clinic);
+          try {
+            await setDoc(doc(db, 'users', uid), { role: 'clinic_admin' }, { merge: true });
+          } catch (e) {
+            console.error("Failed to auto-upgrade admin:", e);
           }
         }
+        
+        if (profileData.clinicId && profileData.clinicId !== '') {
+          try {
+            const clinicDoc = await getDoc(doc(db, 'clinics', profileData.clinicId));
+            if (clinicDoc.exists()) {
+              const clinicData = clinicDoc.data() as Clinic;
+              setClinic({ id: clinicDoc.id, ...clinicData } as Clinic);
+              setProfile(profileData);
+            } else {
+              setProfile(profileData);
+              setClinic(null);
+            }
+          } catch (e) {
+            console.error("Error fetching clinic:", e);
+            setProfile(profileData);
+            setClinic(null);
+          }
+        } else {
+          setProfile(profileData);
+          setClinic(null);
+        }
+      } else {
+        setProfile(null);
+        setClinic(null);
       }
     } catch (error) {
       console.error('Error fetching profile/clinic:', error);
+      // If permission denied during getDoc(clinic), it might be because clinic is not active
+      // and security rules blocked it.
+      if (error instanceof Error && error.message.includes('permission-denied')) {
+         // Silently fail, profile/clinic will be null and UI should handle it
+      }
     }
   };
 

@@ -238,6 +238,71 @@ export function PatientDetails() {
     setIsAddingRecord(true);
   };
 
+  const handlePrintSession = (record: MedicalRecord) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const logoHtml = clinic?.logoUrl ? `<img src="${clinic.logoUrl}" style="max-height: 60px; margin-bottom: 20px;">` : `<h1>${clinic?.name || 'XCLIN'}</h1>`;
+    const rDate = record.date?.toDate() || new Date();
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Sessão - ${patient?.name}</title>
+          <style>
+            body { font-family: sans-serif; padding: 50px; color: #333; line-height: 1.6; }
+            .session-box { border: 1px solid #eee; padding: 40px; border-radius: 12px; max-width: 800px; margin: 0 auto; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+            .header { text-align: center; border-bottom: 2px solid #f1f5f9; margin-bottom: 30px; padding-bottom: 20px; }
+            .patient-label { color: #64748b; font-size: 0.8em; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; }
+            .patient-name { font-size: 1.25em; font-weight: bold; color: #0f172a; margin-bottom: 20px; }
+            .record-meta { display: flex; gap: 20px; margin-bottom: 30px; padding: 15px; background: #f8fafc; border-radius: 8px; font-size: 0.9em; }
+            .content-box { min-height: 300px; padding: 20px; border: 1px solid #f1f5f9; border-radius: 8px; white-space: pre-wrap; font-size: 1em; color: #334155; }
+            .footer { margin-top: 50px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px; color: #94a3b8; font-size: 0.8em; }
+            .signature-area { margin-top: 80px; display: flex; justify-content: center; }
+            .signature-line { border-top: 1px solid #334155; min-width: 300px; text-align: center; padding-top: 10px; }
+            @media print {
+              body { padding: 20px; }
+              .session-box { border: none; box-shadow: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="session-box">
+            <div class="header">
+              ${logoHtml}
+              <h2 style="color: #0284c7; margin: 10px 0;">REGISTRO DE ATENDIMENTO</h2>
+            </div>
+            <div class="patient-label">Paciente</div>
+            <div class="patient-name">${patient?.name}</div>
+            
+            <div class="record-meta">
+              <div><strong>DATA:</strong> ${rDate.toLocaleDateString('pt-BR')}</div>
+              <div><strong>HORA:</strong> ${rDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+              <div><strong>TIPO:</strong> ${record.category === 'evaluation' ? 'Avaliação' : 'Evolução'}</div>
+            </div>
+
+            <div class="patient-label">Evolução Clínica</div>
+            <div class="content-box">${record.content}</div>
+
+            <div class="signature-area">
+              <div class="signature-line">
+                <p style="margin: 0; font-weight: bold;">${record.professionalName}</p>
+                <p style="margin: 0; font-size: 0.8em; color: #64748b;">Profissional Responsável</p>
+              </div>
+            </div>
+
+            <div class="footer">
+              Este documento é parte integrante do prontuário do paciente.<br>
+              Gerado em ${new Date().toLocaleString('pt-BR')} por ${clinic?.name || 'Sistema de Gestão'}
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   const handleExport = () => {
     const filtered = records.filter(r => {
       const d = r.date?.toDate() || new Date();
@@ -564,6 +629,16 @@ export function PatientDetails() {
                               <div className="fixed inset-0 z-10" onClick={() => setOpenRecordMenuId(null)} />
                               <div className="absolute right-0 top-full pt-1 z-20 min-w-[120px]">
                                 <div className="bg-white shadow-xl rounded-xl border border-slate-200 py-1 animate-in fade-in zoom-in duration-200 origin-top-right">
+                                  <button 
+                                    onClick={() => {
+                                      handlePrintSession(record);
+                                      setOpenRecordMenuId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                  >
+                                    <Printer size={14} />
+                                    Imprimir Sessão
+                                  </button>
                                   <button 
                                     onClick={() => {
                                       handleEditRecord(record);

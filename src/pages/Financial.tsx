@@ -148,31 +148,70 @@ export function Financial() {
         <head>
           <title>Recibo - ${clinic?.name}</title>
           <style>
-            body { font-family: sans-serif; padding: 50px; color: #333; line-height: 1.6; }
-            .receipt-box { border: 2px solid #333; padding: 40px; border-radius: 8px; max-width: 600px; margin: 0 auto; }
-            .header { text-align: center; border-bottom: 2px solid #eee; margin-bottom: 30px; padding-bottom: 20px; }
-            .content { margin-bottom: 30px; }
-            .footer { margin-top: 50px; text-align: center; border-top: 1px solid #eee; padding-top: 20px; }
-            .signature { margin-top: 60px; border-top: 1px solid #333; display: inline-block; min-width: 250px; }
-            .amount { font-size: 1.5em; font-weight: bold; background: #f8fafc; padding: 10px; border-radius: 4px; display: inline-block; margin-bottom: 20px; }
+            body { font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; }
+            .receipt-container { border: 1px solid #e2e8f0; padding: 50px; border-radius: 16px; max-width: 700px; margin: 0 auto; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); position: relative; overflow: hidden; }
+            .receipt-container::before { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: #0284c7; }
+            .header { display: flex; justify-content: space-between; align-items: start; border-bottom: 2px solid #f1f5f9; margin-bottom: 40px; padding-bottom: 20px; }
+            .clinic-info h1 { margin: 0; color: #0f172a; font-size: 1.5em; }
+            .clinic-info p { margin: 5px 0; color: #64748b; font-size: 0.9em; }
+            .receipt-title { text-align: right; }
+            .receipt-title h2 { margin: 0; color: #0284c7; letter-spacing: 2px; }
+            .receipt-title p { margin: 5px 0; color: #94a3b8; font-weight: bold; }
+            
+            .content { margin-bottom: 40px; }
+            .amount-box { background: #f0f9ff; border: 2px solid #bae6fd; padding: 20px; border-radius: 12px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+            .amount-label { color: #0369a1; font-weight: bold; text-transform: uppercase; font-size: 0.8em; }
+            .amount-value { color: #0c4a6e; font-size: 2em; font-weight: 800; }
+            
+            .text-block { font-size: 1.1em; color: #334155; }
+            .highlight { font-weight: bold; color: #0f172a; border-bottom: 1px dashed #cbd5e1; }
+            
+            .footer { margin-top: 60px; display: flex; flex-direction: column; align-items: center; gap: 40px; }
+            .date-place { color: #64748b; font-size: 0.9em; }
+            .signature-box { border-top: 1px solid #334155; min-width: 300px; text-align: center; padding-top: 10px; }
+            .signature-box p { margin: 0; font-weight: bold; color: #0f172a; }
+            .signature-box span { font-size: 0.8em; color: #64748b; }
+            
+            @media print {
+              body { padding: 0; }
+              .receipt-container { border: none; box-shadow: none; padding: 20px; }
+            }
           </style>
         </head>
         <body>
-          <div class="receipt-box">
+          <div class="receipt-container">
             <div class="header">
-              <h1>RECIBO</h1>
-              <p><strong>${clinic?.name || 'Clínica SAX'}</strong></p>
+              <div class="clinic-info">
+                <h1>${clinic?.name || 'Clínica'}</h1>
+                <p>Gestão de Saúde e Bem-estar</p>
+              </div>
+              <div class="receipt-title">
+                <h2>RECIBO</h2>
+                <p>Nº ${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}</p>
+              </div>
             </div>
+            
             <div class="content">
-              <div class="amount">VALOR: R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-              <p>Recebemos de <strong>${t.patientName || '_________________________________________'}</strong></p>
-              <p>a quantia de <strong>R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></p>
-              <p>referente a: <strong>${t.description}</strong></p>
+              <div class="amount-box">
+                <span class="amount-label">Valor Recebido</span>
+                <span class="amount-value">R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              
+              <p class="text-block">
+                Recebemos de <span class="highlight">${t.patientName || '_______________________________________'}</span>,
+                a quantia supracitada de <span class="highlight">R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>,
+                referente a <span class="highlight">${t.description || t.category}</span>.
+              </p>
             </div>
+            
             <div class="footer">
-              <p>${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(tDate)}</p>
-              <div class="signature">
-                <p>Responsável</p>
+              <div class="date-place">
+                ${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(tDate)}
+              </div>
+              
+              <div class="signature-box">
+                <p>${clinic?.name || '__________________________'}</p>
+                <span>Assinatura do Responsável</span>
               </div>
             </div>
           </div>
@@ -315,7 +354,7 @@ export function Financial() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {t.type === 'income' && t.category.toLowerCase().includes('sessão') && (
+                        {t.type === 'income' && (
                           <button 
                             onClick={() => handlePrintReceipt(t)}
                             className="p-2 text-slate-300 hover:text-sky-600 transition-colors"

@@ -44,6 +44,7 @@ export function Dashboard() {
   });
   const [recentAppointments, setRecentAppointments] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [birthdayPatients, setBirthdayPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartStartDate, setChartStartDate] = useState('');
   const [chartEndDate, setChartEndDate] = useState('');
@@ -55,7 +56,22 @@ export function Dashboard() {
     // Patients listener
     const pUnsub = onSnapshot(query(collection(db, 'patients'), where('clinicId', '==', clinic.id)), 
       (snap) => {
-        setStats(prev => ({ ...prev, patients: snap.size }));
+        const allPatients = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        setStats(prev => ({ ...prev, patients: allPatients.length }));
+        
+        // Birthday alerts
+        const today = new Date();
+        const brDay = today.getDate();
+        const brMonth = today.getMonth() + 1;
+        
+        const birthdays = allPatients.filter(p => {
+          if (!p.birthDate) return false;
+          const parts = p.birthDate.split('-');
+          if (parts.length !== 3) return false;
+          const [_, month, day] = parts.map(Number);
+          return day === brDay && month === brMonth;
+        });
+        setBirthdayPatients(birthdays);
       }, 
       (err) => handleFirestoreError(err, OperationType.GET, 'patients')
     );
@@ -130,9 +146,8 @@ export function Dashboard() {
           const d = t.date?.toDate();
           if (!d) return;
           const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-          if (!groupedData[key]) groupedData[key] = { name: key };
-          const categoryLabel = t.category || 'Outros';
-          groupedData[key][categoryLabel] = (groupedData[key][categoryLabel] || 0) + (t.amount || 0);
+          if (!groupedData[key]) groupedData[key] = { name: key, total: 0 };
+          groupedData[key].total += (t.amount || 0);
         });
 
         const formattedChartData = Object.values(groupedData)
@@ -171,6 +186,35 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Birthday Alerts */}
+      {birthdayPatients.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shadow-inner">
+              <span className="text-2xl">🎂</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900">Aniversariantes de Hoje!</h3>
+              <p className="text-slate-600 text-sm">
+                Temos {birthdayPatients.length} {birthdayPatients.length === 1 ? 'paciente aniversariante' : 'pacientes aniversariantes'} hoje.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {birthdayPatients.map(p => (
+              <Link 
+                key={p.id} 
+                to={`/patients/${p.id}`}
+                className="bg-white border border-amber-200 px-3 py-1.5 rounded-lg text-sm font-semibold text-amber-700 hover:bg-amber-50 transition-colors flex items-center gap-2"
+              >
+                {p.name}
+                <ChevronRight size={14} />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -269,18 +313,14 @@ export function Dashboard() {
                 <Tooltip 
                   cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                  formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR')}`]}
+                  formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR')}`, 'Total Recebido']}
                 />
-                {categories.map((cat, index) => (
-                  <Bar 
-                    key={cat} 
-                    dataKey={cat} 
-                    stackId="a" 
-                    fill={barColors[index % barColors.length]} 
-                    radius={index === categories.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} 
-                    barSize={40} 
-                  />
-                ))}
+                <Bar 
+                  dataKey="total" 
+                  fill="#0284c7" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={40} 
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { Search, Plus, UserPlus, Phone, Mail, Calendar as CalendarIcon, ChevronRight, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, UserPlus, Phone, Mail, Calendar as CalendarIcon, ChevronRight, Edit2, Trash2, MessageSquare, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Patient } from '../types';
 
@@ -19,8 +19,21 @@ export function Patients() {
     name: '',
     email: '',
     phone: '',
-    birthDate: ''
+    birthDate: '',
+    type: 'adult' as 'adult' | 'child',
+    fatherName: '',
+    motherName: '',
+    address: {
+      street: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      city: '',
+      state: '',
+      zipCode: ''
+    }
   });
+  const [includeAddress, setIncludeAddress] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -49,18 +62,30 @@ export function Patients() {
       if (editingPatientId) {
         await updateDoc(doc(db, 'patients', editingPatientId), {
           ...newPatient,
+          address: includeAddress ? newPatient.address : null,
           updatedAt: serverTimestamp()
         });
       } else {
         await addDoc(collection(db, 'patients'), {
           ...newPatient,
+          address: includeAddress ? newPatient.address : null,
           clinicId: clinic.id,
           createdAt: serverTimestamp()
         });
       }
       setIsModalOpen(false);
       setEditingPatientId(null);
-      setNewPatient({ name: '', email: '', phone: '', birthDate: '' });
+      setNewPatient({ 
+        name: '', 
+        email: '', 
+        phone: '', 
+        birthDate: '',
+        type: 'adult',
+        fatherName: '',
+        motherName: '',
+        address: { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
+      });
+      setIncludeAddress(false);
       fetchPatients();
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'patients');
@@ -81,10 +106,15 @@ export function Patients() {
     setEditingPatientId(patient.id);
     setNewPatient({
       name: patient.name,
-      email: patient.email,
-      phone: patient.phone,
-      birthDate: patient.birthDate
+      email: patient.email || '',
+      phone: patient.phone || '',
+      birthDate: patient.birthDate || '',
+      type: patient.type || 'adult',
+      fatherName: patient.fatherName || '',
+      motherName: patient.motherName || '',
+      address: patient.address || { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
     });
+    setIncludeAddress(!!patient.address);
     setIsModalOpen(true);
   };
 
@@ -167,6 +197,17 @@ export function Patients() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {patient.phone && (
+                          <a 
+                            href={`https://wa.me/${patient.phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors"
+                            title="WhatsApp"
+                          >
+                            <MessageSquare size={18} />
+                          </a>
+                        )}
                         <Link 
                           to={`/patients/${patient.id}`}
                           className="p-2 hover:bg-sky-50 text-sky-600 rounded-lg transition-colors"
@@ -229,14 +270,41 @@ export function Patients() {
                 onClick={() => {
                   setIsModalOpen(false);
                   setEditingPatientId(null);
-                  setNewPatient({ name: '', email: '', phone: '', birthDate: '' });
+                  setNewPatient({ 
+                    name: '', 
+                    email: '', 
+                    phone: '', 
+                    birthDate: '',
+                    type: 'adult',
+                    fatherName: '',
+                    motherName: '',
+                    address: { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
+                  });
+                  setIncludeAddress(false);
                 }} 
                 className="text-slate-400 hover:text-slate-600"
               >
                 <Plus className="rotate-45" size={24} />
               </button>
             </div>
-            <form onSubmit={handleAddPatient} className="p-6 space-y-4">
+            <form onSubmit={handleAddPatient} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-2 gap-4">
+                <div 
+                  onClick={() => setNewPatient({...newPatient, type: 'adult'})}
+                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex flex-col items-center gap-2 ${newPatient.type === 'adult' ? 'border-sky-500 bg-sky-50' : 'border-slate-100 hover:border-slate-200'}`}
+                >
+                  <span className="text-2xl">👨‍💼</span>
+                  <span className={`text-xs font-bold ${newPatient.type === 'adult' ? 'text-sky-700' : 'text-slate-500'}`}>Adulto</span>
+                </div>
+                <div 
+                  onClick={() => setNewPatient({...newPatient, type: 'child'})}
+                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex flex-col items-center gap-2 ${newPatient.type === 'child' ? 'border-sky-500 bg-sky-50' : 'border-slate-100 hover:border-slate-200'}`}
+                >
+                  <span className="text-2xl">🧒</span>
+                  <span className={`text-xs font-bold ${newPatient.type === 'child' ? 'text-sky-700' : 'text-slate-500'}`}>Criança</span>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
                 <input 
@@ -244,32 +312,126 @@ export function Patients() {
                   value={newPatient.name} onChange={e => setNewPatient({...newPatient, name: e.target.value})}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              {newPatient.type === 'child' && (
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Pai (Opcional)</label>
+                    <input 
+                      type="text" className="input-field" 
+                      value={newPatient.fatherName} onChange={e => setNewPatient({...newPatient, fatherName: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nome da Mãe (Opcional)</label>
+                    <input 
+                      type="text" className="input-field" 
+                      value={newPatient.motherName} onChange={e => setNewPatient({...newPatient, motherName: e.target.value})}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">E-mail (Opcional)</label>
                   <input 
-                    type="email" required className="input-field" 
+                    type="email" className="input-field" 
                     value={newPatient.email} onChange={e => setNewPatient({...newPatient, email: e.target.value})}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Telefone / WhatsApp</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Telefone / WhatsApp (Opcional)</label>
                   <input 
-                    type="text" required className="input-field" 
+                    type="text" className="input-field" 
                     value={newPatient.phone} onChange={e => setNewPatient({...newPatient, phone: e.target.value})}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Data de Nascimento</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Data de Nascimento (Opcional)</label>
                 <input 
-                  type="date" required className="input-field" 
+                  type="date" className="input-field" 
                   value={newPatient.birthDate} onChange={e => setNewPatient({...newPatient, birthDate: e.target.value})}
                 />
               </div>
-              <div className="pt-4 flex gap-3">
+
+              {/* Address Toggle */}
+              <div className="pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setIncludeAddress(!includeAddress)}
+                  className={`flex items-center gap-2 text-sm font-semibold transition-colors ${includeAddress ? 'text-sky-600' : 'text-slate-500'}`}
+                >
+                  <div className={`w-10 h-5 rounded-full relative transition-colors ${includeAddress ? 'bg-sky-500' : 'bg-slate-300'}`}>
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${includeAddress ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </div>
+                  Cadastrar Endereço?
+                </button>
+              </div>
+
+              {includeAddress && (
+                <div className="space-y-4 pt-2 border-t border-slate-50 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-2">
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Logradouro</label>
+                      <input 
+                        type="text" className="input-field text-sm" placeholder="Rua, Av..."
+                        value={newPatient.address.street} 
+                        onChange={e => setNewPatient({...newPatient, address: {...newPatient.address, street: e.target.value}})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nº</label>
+                      <input 
+                        type="text" className="input-field text-sm" 
+                        value={newPatient.address.number} 
+                        onChange={e => setNewPatient({...newPatient, address: {...newPatient.address, number: e.target.value}})}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Complemento</label>
+                      <input 
+                        type="text" className="input-field text-sm" 
+                        value={newPatient.address.complement} 
+                        onChange={e => setNewPatient({...newPatient, address: {...newPatient.address, complement: e.target.value}})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Bairro</label>
+                      <input 
+                        type="text" className="input-field text-sm" 
+                        value={newPatient.address.neighborhood} 
+                        onChange={e => setNewPatient({...newPatient, address: {...newPatient.address, neighborhood: e.target.value}})}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Cidade</label>
+                      <input 
+                        type="text" className="input-field text-sm" 
+                        value={newPatient.address.city} 
+                        onChange={e => setNewPatient({...newPatient, address: {...newPatient.address, city: e.target.value}})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Estado</label>
+                      <input 
+                        type="text" className="input-field text-sm" placeholder="UF"
+                        value={newPatient.address.state} 
+                        onChange={e => setNewPatient({...newPatient, address: {...newPatient.address, state: e.target.value}})}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 flex gap-3 sticky bottom-0 bg-white pb-2">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
-                <button type="submit" className="flex-1 btn-primary">Cadastrar</button>
+                <button type="submit" className="flex-1 btn-primary">{editingPatientId ? 'Salvar' : 'Cadastrar'}</button>
               </div>
             </form>
           </div>

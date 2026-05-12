@@ -26,7 +26,8 @@ import {
   Download,
   MoreVertical,
   Printer,
-  Stethoscope
+  Stethoscope,
+  MessageSquare
 } from 'lucide-react';
 import { Patient, MedicalRecord } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -54,11 +55,24 @@ export function PatientDetails() {
   
   // Edit Patient modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [includeAddress, setIncludeAddress] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
     phone: '',
-    birthDate: ''
+    birthDate: '',
+    type: 'adult' as 'adult' | 'child',
+    fatherName: '',
+    motherName: '',
+    address: {
+      street: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      city: '',
+      state: '',
+      zipCode: ''
+    }
   });
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: 'patient' | 'record' } | null>(null);
@@ -75,10 +89,15 @@ export function PatientDetails() {
           setPatient(data);
           setEditForm({
             name: data.name,
-            email: data.email,
-            phone: data.phone,
-            birthDate: data.birthDate
+            email: data.email || '',
+            phone: data.phone || '',
+            birthDate: data.birthDate || '',
+            type: data.type || 'adult',
+            fatherName: data.fatherName || '',
+            motherName: data.motherName || '',
+            address: data.address || { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
           });
+          setIncludeAddress(!!data.address);
         }
       }
 
@@ -143,6 +162,7 @@ export function PatientDetails() {
     try {
       await updateDoc(doc(db, 'patients', id), {
         ...editForm,
+        address: includeAddress ? editForm.address : null,
         updatedAt: serverTimestamp()
       });
       setIsEditModalOpen(false);
@@ -306,14 +326,45 @@ export function PatientDetails() {
               Informações do Paciente
             </h3>
             <div className="space-y-4 text-sm">
-              <div>
-                <p className="text-slate-400 mb-1">E-mail</p>
-                <p className="text-slate-700 font-medium">{patient.email}</p>
-              </div>
-              <div>
-                <p className="text-slate-400 mb-1">Telefone</p>
-                <p className="text-slate-700 font-medium">{patient.phone}</p>
-              </div>
+              {patient.email && (
+                <div>
+                  <p className="text-slate-400 mb-1">E-mail</p>
+                  <p className="text-slate-700 font-medium">{patient.email}</p>
+                </div>
+              )}
+              {patient.phone && (
+                <div>
+                  <p className="text-slate-400 mb-1">Telefone</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-slate-700 font-medium">{patient.phone}</p>
+                    <a 
+                      href={`https://wa.me/${patient.phone.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"
+                      title="WhatsApp"
+                    >
+                      <MessageSquare size={16} />
+                    </a>
+                  </div>
+                </div>
+              )}
+              {(patient.fatherName || patient.motherName) && (
+                <div className="pt-2 border-t border-slate-50 space-y-3">
+                  {patient.fatherName && (
+                    <div>
+                      <p className="text-slate-400 mb-0.5 uppercase text-[10px] font-bold">Pai</p>
+                      <p className="text-slate-700 font-medium">{patient.fatherName}</p>
+                    </div>
+                  )}
+                  {patient.motherName && (
+                    <div>
+                      <p className="text-slate-400 mb-0.5 uppercase text-[10px] font-bold">Mãe</p>
+                      <p className="text-slate-700 font-medium">{patient.motherName}</p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="pt-4 flex gap-2">
                 <button 
                   onClick={() => setIsEditModalOpen(true)}
@@ -578,7 +629,23 @@ export function PatientDetails() {
                 <Plus className="rotate-45" size={24} />
               </button>
             </div>
-            <form onSubmit={handleUpdatePatient} className="p-6 space-y-4">
+            <form onSubmit={handleUpdatePatient} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-2 gap-4">
+                <div 
+                  onClick={() => setEditForm({...editForm, type: 'adult'})}
+                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex flex-col items-center gap-2 ${editForm.type === 'adult' ? 'border-sky-500 bg-sky-50' : 'border-slate-100 hover:border-slate-200'}`}
+                >
+                  <span className="text-2xl">👨‍💼</span>
+                  <span className={`text-xs font-bold ${editForm.type === 'adult' ? 'text-sky-700' : 'text-slate-500'}`}>Adulto</span>
+                </div>
+                <div 
+                  onClick={() => setEditForm({...editForm, type: 'child'})}
+                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex flex-col items-center gap-2 ${editForm.type === 'child' ? 'border-sky-500 bg-sky-50' : 'border-slate-100 hover:border-slate-200'}`}
+                >
+                  <span className="text-2xl">🧒</span>
+                  <span className={`text-xs font-bold ${editForm.type === 'child' ? 'text-sky-700' : 'text-slate-500'}`}>Criança</span>
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
                 <input 
@@ -587,19 +654,41 @@ export function PatientDetails() {
                   onChange={e => setEditForm({...editForm, name: e.target.value})}
                 />
               </div>
+
+              {editForm.type === 'child' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Pai</label>
+                    <input 
+                      type="text" className="input-field"
+                      value={editForm.fatherName}
+                      onChange={e => setEditForm({...editForm, fatherName: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Mãe</label>
+                    <input 
+                      type="text" className="input-field"
+                      value={editForm.motherName}
+                      onChange={e => setEditForm({...editForm, motherName: e.target.value})}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
                   <input 
-                    type="email" required className="input-field"
+                    type="email" className="input-field"
                     value={editForm.email}
                     onChange={e => setEditForm({...editForm, email: e.target.value})}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Telefone / WhatsApp</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
                   <input 
-                    type="text" required className="input-field"
+                    type="text" className="input-field"
                     value={editForm.phone}
                     onChange={e => setEditForm({...editForm, phone: e.target.value})}
                   />
@@ -608,12 +697,68 @@ export function PatientDetails() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Data de Nascimento</label>
                 <input 
-                  type="date" required className="input-field"
+                  type="date" className="input-field"
                   value={editForm.birthDate}
                   onChange={e => setEditForm({...editForm, birthDate: e.target.value})}
                 />
               </div>
-              <div className="pt-4 flex gap-3">
+
+              {/* Address Toggle */}
+              <div className="pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setIncludeAddress(!includeAddress)}
+                  className={`flex items-center gap-2 text-sm font-semibold transition-colors ${includeAddress ? 'text-sky-600' : 'text-slate-500'}`}
+                >
+                  <div className={`w-10 h-5 rounded-full relative transition-colors ${includeAddress ? 'bg-sky-500' : 'bg-slate-300'}`}>
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${includeAddress ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </div>
+                  Cadastrar Endereço?
+                </button>
+              </div>
+
+              {includeAddress && (
+                <div className="space-y-4 pt-2 border-t border-slate-50">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-2">
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Logradouro</label>
+                      <input 
+                        type="text" className="input-field text-sm"
+                        value={editForm.address.street} 
+                        onChange={e => setEditForm({...editForm, address: {...editForm.address, street: e.target.value}})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nº</label>
+                      <input 
+                        type="text" className="input-field text-sm" 
+                        value={editForm.address.number} 
+                        onChange={e => setEditForm({...editForm, address: {...editForm.address, number: e.target.value}})}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Complemento</label>
+                      <input 
+                        type="text" className="input-field text-sm" 
+                        value={editForm.address.complement} 
+                        onChange={e => setEditForm({...editForm, address: {...editForm.address, complement: e.target.value}})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Bairro</label>
+                      <input 
+                        type="text" className="input-field text-sm" 
+                        value={editForm.address.neighborhood} 
+                        onChange={e => setEditForm({...editForm, address: {...editForm.address, neighborhood: e.target.value}})}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 flex gap-3 sticky bottom-0 bg-white pb-2">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
                 <button type="submit" className="flex-1 btn-primary">Salvar Alterações</button>
               </div>

@@ -50,6 +50,21 @@
         "email": { "type": "string" },
         "phone": { "type": "string" },
         "birthDate": { "type": "string" },
+        "type": { "type": "string", "enum": ["adult", "child"] },
+        "fatherName": { "type": "string" },
+        "motherName": { "type": "string" },
+        "address": { 
+          "type": "object",
+          "properties": {
+            "street": { "type": "string" },
+            "number": { "type": "string" },
+            "complement": { "type": "string" },
+            "neighborhood": { "type": "string" },
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "zipCode": { "type": "string" }
+          }
+        },
         "clinicId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }

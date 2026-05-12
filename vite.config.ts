@@ -20,6 +20,7 @@ export default defineConfig(({mode}) => {
       port: 3000,
       strictPort: true,
       hmr: process.env.DISABLE_HMR === 'true' ? false : {
+        protocol: 'wss',
         clientPort: 443,
       },
     },

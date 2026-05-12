@@ -36,8 +36,9 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMessage = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -52,6 +53,23 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  
+  console.error('Firestore Error Details: ', JSON.stringify(errInfo));
+
+  // Determine user friendly message
+  let userFriendly = "Não foi possível carregar os dados no momento.";
+  
+  if (errMessage.includes("index")) {
+    userFriendly = "O sistema está sendo otimizado para sua clínica. Por favor, aguarde alguns instantes e tente novamente.";
+  } else if (errMessage.includes("permission-denied")) {
+    userFriendly = "Você não possui permissão para realizar esta ação ou visualizar estes dados.";
+  } else if (errMessage.includes("quota")) {
+    userFriendly = "O limite de uso diário foi atingido. O serviço será restabelecido em breve.";
+  }
+
+  // Use a professional alert or throw for ErrorBoundary to catch
+  const professionalError = new Error(userFriendly);
+  (professionalError as any).originalError = errInfo;
+  
+  throw professionalError;
 }

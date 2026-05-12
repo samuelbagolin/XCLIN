@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Layout } from './components/Layout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
@@ -11,6 +12,8 @@ import { Professionals } from './pages/Professionals';
 import { Financial } from './pages/Financial';
 import { Settings } from './pages/Settings';
 import { Onboarding } from './pages/Onboarding';
+import Documents from './pages/Documents';
+import SignaturePage from './pages/SignaturePage';
 
 import { ShieldAlert } from 'lucide-react';
 
@@ -58,7 +61,13 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
     return <Navigate to="/" />;
   }
   
-  return <Layout>{children}</Layout>;
+  return (
+    <Layout>
+      <ErrorBoundary>
+        {children}
+      </ErrorBoundary>
+    </Layout>
+  );
 }
 
 export default function App() {
@@ -75,6 +84,8 @@ export default function App() {
           <Route path="/professionals" element={<ProtectedRoute allowedRoles={['clinic_admin', 'receptionist']}><Professionals /></ProtectedRoute>} />
           <Route path="/financial" element={<ProtectedRoute allowedRoles={['clinic_admin', 'financial']}><Financial /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute allowedRoles={['clinic_admin']}><Settings /></ProtectedRoute>} />
+          <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+          <Route path="/sign/:id" element={<SignaturePage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

@@ -26,10 +26,14 @@ import {
   Download,
   MoreVertical,
   Printer,
+  Edit2,
   Stethoscope,
-  MessageSquare
+  MessageSquare,
+  FileCheck,
+  ExternalLink,
+  CheckCircle2
 } from 'lucide-react';
-import { Patient, MedicalRecord } from '../types';
+import { Patient, MedicalRecord, Document } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { updateDoc, deleteDoc } from 'firebase/firestore';
 
@@ -44,6 +48,8 @@ export function PatientDetails() {
   const [newRecordContent, setNewRecordContent] = useState('');
   const [recordCategory, setRecordCategory] = useState<'evolution' | 'evaluation'>('evolution');
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'records' | 'agenda' | 'financial' | 'documents'>('records');
+  const [patientDocuments, setPatientDocuments] = useState<Document[]>([]);
   
   // Export states
   const [exportStartDate, setExportStartDate] = useState('');
@@ -62,6 +68,7 @@ export function PatientDetails() {
     phone: '',
     birthDate: '',
     type: 'adult' as 'adult' | 'child',
+    cpf: '',
     fatherName: '',
     motherName: '',
     address: {
@@ -78,6 +85,26 @@ export function PatientDetails() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: 'patient' | 'record' } | null>(null);
   const [openRecordMenuId, setOpenRecordMenuId] = useState<string | null>(null);
   const [financialTransactions, setFinancialTransactions] = useState<any[]>([]);
+  const [docToDelete, setDocToDelete] = useState<Document | null>(null);
+
+  const getSignatureUrl = (id: string) => `${window.location.origin}/sign/${id}`;
+
+  const handleSendMessage = (document: Document) => {
+    const url = getSignatureUrl(document.id);
+    const message = `Olá ${document.patientName}, seu documento (${document.title}) está disponível para assinatura no link abaixo:\n\n${url}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    try {
+      await deleteDoc(doc(db, 'documents', docId));
+      setDocToDelete(null);
+      fetchData();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, 'documents');
+    }
+  };
 
   const fetchData = async () => {
     if (!id || !clinic) return;
@@ -93,6 +120,7 @@ export function PatientDetails() {
             phone: data.phone || '',
             birthDate: data.birthDate || '',
             type: data.type || 'adult',
+            cpf: data.cpf || '',
             fatherName: data.fatherName || '',
             motherName: data.motherName || '',
             address: data.address || { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
@@ -112,6 +140,21 @@ export function PatientDetails() {
         .sort((a, b) => {
           const dateA = (a.date as any).seconds || new Date(a.date).getTime();
           const dateB = (b.date as any).seconds || new Date(b.date).getTime();
+          return dateB - dateA;
+        })
+      );
+
+      // Documents (filter only, sort in memory to avoid index error)
+      const docsQ = query(
+        collection(db, 'documents'),
+        where('patientId', '==', id)
+      );
+      const docsSnap = await getDocs(docsQ);
+      setPatientDocuments(docsSnap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Document))
+        .sort((a, b) => {
+          const dateA = a.createdAt?.toMillis() || 0;
+          const dateB = b.createdAt?.toMillis() || 0;
           return dateB - dateA;
         })
       );
@@ -303,6 +346,19 @@ export function PatientDetails() {
     printWindow.print();
   };
 
+  const calculateAge = (birthDate: string) => {
+    if (!birthDate) return 0;
+    const today = new Date();
+    const [year, month, day] = birthDate.split('-').map(Number);
+    const birth = new Date(year, month - 1, day);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   const handleExport = () => {
     const filtered = records.filter(r => {
       const d = r.date?.toDate() || new Date();
@@ -338,7 +394,7 @@ export function PatientDetails() {
           </div>
           <div class="patient-info">
             <p><strong>Paciente:</strong> ${patient?.name}</p>
-            <p><strong>Nascimento:</strong> ${new Date(patient?.birthDate || '').toLocaleDateString('pt-BR')}</p>
+            <p><strong>Nascimento:</strong> ${patient?.birthDate ? patient.birthDate.split('-').reverse().join('/') : '---'}</p>
           </div>
           ${filtered.map(r => `
             <div class="record">
@@ -376,7 +432,7 @@ export function PatientDetails() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{patient.name}</h1>
           <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
-            <span className="flex items-center gap-1.5"><History size={14} /> {new Date().getFullYear() - new Date(patient.birthDate + 'T12:00:00').getFullYear()} anos</span>
+            <span className="flex items-center gap-1.5"><History size={14} /> {calculateAge(patient.birthDate)} anos</span>
             <span className="flex items-center gap-1.5"><CalendarIcon size={14} /> Nascido em {patient.birthDate.split('-').reverse().join('/')}</span>
           </div>
         </div>
@@ -395,6 +451,12 @@ export function PatientDetails() {
                 <div>
                   <p className="text-slate-400 mb-1">E-mail</p>
                   <p className="text-slate-700 font-medium">{patient.email}</p>
+                </div>
+              )}
+              {patient.cpf && (
+                <div>
+                  <p className="text-slate-400 mb-1">CPF</p>
+                  <p className="text-slate-700 font-medium">{patient.cpf}</p>
                 </div>
               )}
               {patient.phone && (
@@ -518,34 +580,55 @@ export function PatientDetails() {
 
         {/* Medical History */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-slate-900">Histórico de Evolução</h3>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setIsExportModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
-          >
-            <Download size={18} />
-            Exportar
-          </button>
-          <button 
-            onClick={() => setIsAddingRecord(!isAddingRecord)}
-            className="btn-primary py-2 text-sm"
-          >
-            {isAddingRecord ? (
-              <>Cancelar</>
-            ) : (
-              <>
-                <Plus size={18} />
-                Nova Evolução
-              </>
-            )}
-          </button>
-        </div>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
+              {[
+                { id: 'records', label: 'Evoluções & Avaliações' },
+                { id: 'documents', label: 'Contratos & Documentos' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {activeTab === 'records' && (
+                <>
+                  <button 
+                    onClick={() => setIsExportModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                  >
+                    <Download size={18} />
+                    Exportar
+                  </button>
+                  <button 
+                    onClick={() => setIsAddingRecord(!isAddingRecord)}
+                    className="btn-primary py-2 text-sm"
+                  >
+                    {isAddingRecord ? 'Cancelar' : <><Plus size={18} /> Nova Evolução</>}
+                  </button>
+                </>
+              )}
+              {activeTab === 'documents' && (
+                <button 
+                  onClick={() => navigate('/documents')}
+                  className="btn-primary py-2 text-sm"
+                >
+                  <Plus size={18} /> Novo Contrato
+                </button>
+              )}
+            </div>
           </div>
 
-          <AnimatePresence>
-            {isAddingRecord && (
+          {activeTab === 'records' && (
+            <>
+              <AnimatePresence>
+              {isAddingRecord && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -628,15 +711,17 @@ export function PatientDetails() {
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setOpenRecordMenuId(null)} />
                               <div className="absolute right-0 top-full pt-1 z-20 min-w-[120px]">
-                                <div className="bg-white shadow-xl rounded-xl border border-slate-200 py-1 animate-in fade-in zoom-in duration-200 origin-top-right">
+                                <div className="bg-white shadow-2xl rounded-2xl border border-slate-100 py-2 animate-in fade-in zoom-in duration-200 origin-top-right min-w-[180px]">
                                   <button 
                                     onClick={() => {
                                       handlePrintSession(record);
                                       setOpenRecordMenuId(null);
                                     }}
-                                    className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                    className="w-full text-left px-4 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-sky-600 transition-all flex items-center gap-3"
                                   >
-                                    <Printer size={14} />
+                                    <div className="p-1.5 bg-slate-50 rounded-lg group-hover:bg-sky-50 transition-colors">
+                                      <Printer size={16} className="opacity-70" />
+                                    </div>
                                     Imprimir Sessão
                                   </button>
                                   <button 
@@ -644,18 +729,25 @@ export function PatientDetails() {
                                       handleEditRecord(record);
                                       setOpenRecordMenuId(null);
                                     }}
-                                    className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                                    className="w-full text-left px-4 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-sky-600 transition-all flex items-center gap-3"
                                   >
-                                    Editar
+                                    <div className="p-1.5 bg-slate-50 rounded-lg group-hover:bg-sky-50 transition-colors">
+                                      <Edit2 size={16} className="opacity-70" />
+                                    </div>
+                                    Editar Registro
                                   </button>
+                                  <div className="my-2 border-t border-slate-100 mx-2"></div>
                                   <button 
                                     onClick={() => {
                                       setDeleteConfirm({ id: record.id, type: 'record' });
                                       setOpenRecordMenuId(null);
                                     }}
-                                    className="w-full text-left px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-slate-50 transition-colors"
+                                    className="w-full text-left px-4 py-3 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-all flex items-center gap-3"
                                   >
-                                    Excluir
+                                    <div className="p-1.5 bg-rose-50 rounded-lg group-hover:bg-rose-100 transition-colors">
+                                      <Trash2 size={16} />
+                                    </div>
+                                    Excluir Evolução
                                   </button>
                                 </div>
                               </div>
@@ -671,23 +763,167 @@ export function PatientDetails() {
                 </div>
               ))
             )}
-          </div>
+            </div>
+            </>
+          )}
+
+          {activeTab === 'documents' && (
+            <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 tracking-tight">Acervo de Documentos</h3>
+                  <p className="text-xs text-slate-500 mt-1 font-medium italic">Gestão de formalização jurídica e contratual.</p>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-left">
+                      <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Documento</th>
+                      <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Status</th>
+                      <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Enviado</th>
+                      <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Assinatura</th>
+                      <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {patientDocuments.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-8 py-20 text-center">
+                          <div className="max-w-xs mx-auto space-y-3">
+                            <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto ring-4 ring-white shadow-sm">
+                              <FileCheck size={32} />
+                            </div>
+                            <p className="text-slate-400 font-medium text-sm">Nenhum contrato gerado para este paciente ainda.</p>
+                            <button onClick={() => navigate('/documents')} className="text-sky-600 text-xs font-bold hover:underline">Gerar primeiro contrato agora</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      patientDocuments.map((doc) => (
+                        <tr key={doc.id} className="group hover:bg-slate-50/50 transition-colors">
+                          <td className="px-8 py-6">
+                            <div className="flex items-center gap-4">
+                              <div className="w-11 h-11 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-sky-600 shadow-sm group-hover:shadow-md transition-shadow">
+                                <FileCheck size={22} />
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-900 group-hover:text-sky-600 transition-colors">{doc.title}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Versão: {doc.id.slice(0, 8)}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="flex justify-center">
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                doc.status === 'signed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm shadow-emerald-500/5' :
+                                doc.status === 'viewed' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                                'bg-slate-50 text-slate-500 border-slate-100'
+                              }`}>
+                                {doc.status === 'signed' ? (
+                                  <span className="flex items-center gap-1.5"><CheckCircle2 size={12} /> Assinado</span>
+                                ) : doc.status}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="flex items-center gap-2 text-slate-500 font-medium">
+                              <CalendarIcon size={14} className="opacity-40" />
+                              {doc.createdAt?.toDate().toLocaleDateString('pt-BR')}
+                            </div>
+                          </td>
+                          <td className="px-8 py-6">
+                            {doc.signedAt ? (
+                              <div className="space-y-1">
+                                <div className="text-emerald-600 font-bold flex items-center gap-1">
+                                  {doc.signedAt.toDate().toLocaleDateString('pt-BR')}
+                                </div>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[120px]">IP: {doc.signatureIp}</p>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300 italic text-xs">Aguardando...</span>
+                            )}
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => window.open(`/sign/${doc.id}`, '_blank')}
+                                className="p-3 bg-white border border-slate-100 text-slate-400 hover:text-sky-600 rounded-xl hover:shadow-lg transition-all"
+                                title="Visualizar"
+                              >
+                                <ExternalLink size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleSendMessage(doc)}
+                                className="p-3 bg-white border border-slate-100 text-slate-400 hover:text-emerald-600 rounded-xl hover:shadow-lg transition-all"
+                                title="Enviar via WhatsApp"
+                              >
+                                <MessageSquare size={18} />
+                              </button>
+                              <button 
+                                onClick={() => setDocToDelete(doc)}
+                                className="p-3 bg-white border border-slate-100 text-slate-400 hover:text-rose-600 rounded-xl hover:shadow-lg transition-all"
+                                title="Excluir"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Document Delete Confirmation Modal */}
+      {docToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-300 text-center">
+            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-rose-50/50">
+              <AlertTriangle size={40} />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2 whitespace-nowrap uppercase tracking-tight">TEM CERTEZA?</h3>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+              Deseja realmente excluir este documento? Essa ação não poderá ser desfeita e o link de assinatura será invalidado.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDocToDelete(null)} className="flex-1 btn-secondary py-3 text-sm">Cancelar</button>
+              <button 
+                onClick={() => handleDeleteDocument(docToDelete.id)} 
+                className="flex-1 py-3 rounded-xl bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20 active:scale-95"
+              >
+                Excluir Documento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transition-all">
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Excluir {deleteConfirm.type === 'patient' ? 'Paciente' : 'Registro'}?</h3>
-            <p className="text-sm text-slate-500 mb-6">Tem certeza que deseja remover este item? Esta ação não pode ser desfeita.</p>
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-300 text-center">
+            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-rose-50/50">
+              <AlertTriangle size={40} />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2 whitespace-nowrap uppercase tracking-tight">TEM CERTEZA?</h3>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+              {deleteConfirm.type === 'patient' 
+                ? 'Este paciente e todo o seu histórico clínico serão removidos permanentemente.'
+                : 'Esta evolução clínica será removida permanentemente.'}
+            </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 btn-secondary">Cancelar</button>
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 btn-secondary py-3">Cancelar</button>
               <button 
                 onClick={() => deleteConfirm.type === 'patient' ? handleDeletePatient() : handleDeleteRecord(deleteConfirm.id)} 
-                className="flex-1 py-2 rounded-xl bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20"
+                className="flex-1 py-3 rounded-xl bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20 active:scale-95"
               >
-                Excluir
+                Confirmar Exclusão
               </button>
             </div>
           </div>
@@ -727,6 +963,16 @@ export function PatientDetails() {
                   type="text" required className="input-field"
                   value={editForm.name}
                   onChange={e => setEditForm({...editForm, name: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">CPF (Opcional)</label>
+                <input 
+                  type="text" className="input-field"
+                  value={editForm.cpf}
+                  onChange={e => setEditForm({...editForm, cpf: e.target.value})}
+                  placeholder="000.000.000-00"
                 />
               </div>
 

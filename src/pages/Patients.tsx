@@ -21,6 +21,7 @@ export function Patients() {
     phone: '',
     birthDate: '',
     type: 'adult' as 'adult' | 'child',
+    cpf: '',
     fatherName: '',
     motherName: '',
     address: {
@@ -110,6 +111,7 @@ export function Patients() {
       phone: patient.phone || '',
       birthDate: patient.birthDate || '',
       type: patient.type || 'adult',
+      cpf: patient.cpf || '',
       fatherName: patient.fatherName || '',
       motherName: patient.motherName || '',
       address: patient.address || { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
@@ -276,6 +278,7 @@ export function Patients() {
                     phone: '', 
                     birthDate: '',
                     type: 'adult',
+                    cpf: '',
                     fatherName: '',
                     motherName: '',
                     address: { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
@@ -310,6 +313,15 @@ export function Patients() {
                 <input 
                   type="text" required className="input-field" 
                   value={newPatient.name} onChange={e => setNewPatient({...newPatient, name: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">CPF (Opcional)</label>
+                <input 
+                  type="text" className="input-field" 
+                  value={newPatient.cpf} onChange={e => setNewPatient({...newPatient, cpf: e.target.value})}
+                  placeholder="000.000.000-00"
                 />
               </div>
 

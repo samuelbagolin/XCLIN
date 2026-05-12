@@ -9,7 +9,8 @@ import {
   Settings as SettingsIcon,
   LogOut,
   Menu,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -30,6 +31,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { to: '/calendar', icon: CalendarIcon, label: 'Agenda', roles: ['clinic_admin', 'professional', 'receptionist'] },
     { to: '/professionals', icon: Stethoscope, label: 'Profissionais', roles: ['clinic_admin', 'receptionist'] },
     { to: '/financial', icon: DollarSign, label: 'Financeiro', roles: ['clinic_admin', 'financial'] },
+    { to: '/documents', icon: FileText, label: 'Documentos', roles: ['clinic_admin', 'professional', 'receptionist'] },
     { to: '/settings', icon: SettingsIcon, label: 'Configurações', roles: ['clinic_admin'] },
   ];
 

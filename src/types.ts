@@ -43,6 +43,7 @@ export interface Patient {
   type?: 'adult' | 'child';
   fatherName?: string;
   motherName?: string;
+  cpf?: string;
   address?: {
     street?: string;
     number?: string;
@@ -53,6 +54,28 @@ export interface Patient {
     zipCode?: string;
   };
   createdAt: any;
+}
+
+export type DocumentType = 'service_contract' | 'school_visit' | 'cancellation_policy';
+export type DocumentStatus = 'pending' | 'sent' | 'viewed' | 'signed' | 'refused' | 'expired';
+
+export interface Document {
+  id: string;
+  clinicId: string;
+  patientId: string;
+  patientName: string;
+  type: DocumentType;
+  title: string;
+  content: string;
+  status: DocumentStatus;
+  value?: number;
+  signedAt?: any;
+  signedBy?: string;
+  signatureIp?: string;
+  sentAt?: any;
+  viewedAt?: any;
+  createdAt: any;
+  updatedAt: any;
 }
 
 export interface Appointment {

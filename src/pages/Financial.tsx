@@ -70,7 +70,7 @@ export function Financial() {
       const pSnap = await getDocs(query(collection(db, 'patients'), where('clinicId', '==', clinic.id)));
       setPatients(pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient)).sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
-      handleFirestoreError(err, OperationType.GET, 'financialTransactions/patients');
+      handleFirestoreError(err, OperationType.GET, 'financialTransactions');
     } finally {
       setLoading(false);
     }

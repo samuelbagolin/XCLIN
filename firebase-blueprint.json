@@ -51,6 +51,7 @@
         "phone": { "type": "string" },
         "birthDate": { "type": "string" },
         "type": { "type": "string", "enum": ["adult", "child"] },
+        "cpf": { "type": "string" },
         "fatherName": { "type": "string" },
         "motherName": { "type": "string" },
         "address": { 
@@ -70,6 +71,28 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "clinicId"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "Contracts and generated documents",
+      "type": "object",
+      "properties": {
+        "clinicId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "type": { "type": "string", "enum": ["service_contract", "school_visit", "cancellation_policy"] },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "sent", "viewed", "signed", "refused", "expired"] },
+        "value": { "type": "number" },
+        "signedAt": { "type": "string", "format": "date-time" },
+        "signedBy": { "type": "string" },
+        "signatureIp": { "type": "string" },
+        "sentAt": { "type": "string", "format": "date-time" },
+        "viewedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     },
     "Appointment": {
       "title": "Appointment",
@@ -152,6 +175,10 @@
     "/patients/{patientId}": {
       "schema": "Patient",
       "description": "Patient data"
+    },
+    "/documents/{docId}": {
+      "schema": "Document",
+      "description": "Patient documents and contracts"
     },
     "/appointments/{appId}": {
       "schema": "Appointment",

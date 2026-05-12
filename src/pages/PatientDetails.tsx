@@ -31,7 +31,8 @@ import {
   MessageSquare,
   FileCheck,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { Patient, MedicalRecord, Document } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -46,7 +47,7 @@ export function PatientDetails() {
   const [loading, setLoading] = useState(true);
   const [isAddingRecord, setIsAddingRecord] = useState(false);
   const [newRecordContent, setNewRecordContent] = useState('');
-  const [recordCategory, setRecordCategory] = useState<'evolution' | 'evaluation'>('evolution');
+  const [recordCategory, setRecordCategory] = useState<'evolution' | 'evaluation' | 'document'>('evolution');
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'records' | 'agenda' | 'financial' | 'documents'>('records');
   const [patientDocuments, setPatientDocuments] = useState<Document[]>([]);
@@ -123,7 +124,15 @@ export function PatientDetails() {
             cpf: data.cpf || '',
             fatherName: data.fatherName || '',
             motherName: data.motherName || '',
-            address: data.address || { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
+            address: {
+              street: data.address?.street || '',
+              number: data.address?.number || '',
+              complement: data.address?.complement || '',
+              neighborhood: data.address?.neighborhood || '',
+              city: data.address?.city || '',
+              state: data.address?.state || '',
+              zipCode: data.address?.zipCode || ''
+            }
           });
           setIncludeAddress(!!data.address);
         }

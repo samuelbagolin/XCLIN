@@ -17,6 +17,7 @@ export interface Clinic {
   address?: string;
   phone?: string;
   ownerId: string;
+  status?: 'active' | 'suspended' | 'pending';
 }
 
 export interface Specialty {

@@ -82,6 +82,7 @@ export function Patients() {
         phone: '', 
         birthDate: '',
         type: 'adult',
+        cpf: '',
         fatherName: '',
         motherName: '',
         address: { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
@@ -114,7 +115,15 @@ export function Patients() {
       cpf: patient.cpf || '',
       fatherName: patient.fatherName || '',
       motherName: patient.motherName || '',
-      address: patient.address || { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }
+      address: {
+        street: patient.address?.street || '',
+        number: patient.address?.number || '',
+        complement: patient.address?.complement || '',
+        neighborhood: patient.address?.neighborhood || '',
+        city: patient.address?.city || '',
+        state: patient.address?.state || '',
+        zipCode: patient.address?.zipCode || ''
+      }
     });
     setIncludeAddress(!!patient.address);
     setIsModalOpen(true);

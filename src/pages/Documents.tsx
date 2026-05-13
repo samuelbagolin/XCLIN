@@ -225,7 +225,14 @@ export default function Documents() {
   };
 
   const handleViewDocument = (docId: string) => {
-    window.open(`/sign/${docId}`, '_blank');
+    // For mobile, we can use a direct link if window.open is problematic, 
+    // but here we ensure user experience is good.
+    const url = `/sign/${docId}`;
+    if (window.innerWidth < 768) {
+      window.location.href = url;
+    } else {
+      window.open(url, '_blank');
+    }
   };
 
   const handleSendMessage = (document: Document) => {
@@ -233,6 +240,25 @@ export default function Documents() {
     const message = `Olá ${document.patientName}, seu documento (${document.title}) está disponível para assinatura no link abaixo:\n\n${url}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const handleShare = async (document: Document) => {
+    const url = getSignatureUrl(document.id);
+    const shareData = {
+      title: document.title,
+      text: `Olá ${document.patientName}, segue seu documento para assinatura:`,
+      url: url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error('Share failed', err);
+      }
+    } else {
+      handleSendMessage(document);
+    }
   };
 
   const [docToDelete, setDocToDelete] = useState<Document | null>(null);
@@ -310,28 +336,28 @@ export default function Documents() {
                             {doc.status.toUpperCase()}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1 md:gap-2">
                             <button 
                               onClick={() => handleViewDocument(doc.id)}
-                              className="p-2 hover:bg-white hover:shadow-md rounded-lg text-slate-400 hover:text-sky-600 transition-all border border-transparent hover:border-slate-100"
+                              className="p-2.5 rounded-xl text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition-all border border-slate-100 md:border-transparent md:hover:border-slate-100"
                               title="Visualizar"
                             >
-                              <ExternalLink size={16} />
+                              <ExternalLink size={18} />
                             </button>
                             <button 
-                              onClick={() => handleSendMessage(doc)}
-                              className="p-2 hover:bg-white hover:shadow-md rounded-lg text-slate-400 hover:text-emerald-600 transition-all border border-transparent hover:border-slate-100"
-                              title="Enviar Mensagem"
+                              onClick={() => handleShare(doc)}
+                              className="p-2.5 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all border border-slate-100 md:border-transparent md:hover:border-slate-100"
+                              title="Compartilhar"
                             >
-                              <MessageSquare size={16} />
+                              <Send size={18} />
                             </button>
                             <button 
                               onClick={() => setDocToDelete(doc)}
-                              className="p-2 hover:bg-white hover:shadow-md rounded-lg text-slate-400 hover:text-rose-600 transition-all border border-transparent hover:border-slate-100"
+                              className="p-2.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all border border-slate-100 md:border-transparent md:hover:border-slate-100"
                               title="Excluir"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={18} />
                             </button>
                           </div>
                         </td>

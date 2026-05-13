@@ -91,6 +91,16 @@ export interface Appointment {
   type: string;
   clinicId: string;
   notes?: string;
+  createdAt?: any;
+  updatedAt?: any;
+  recurrenceId?: string; // Links all instances of a recurring series
+  recurrenceRule?: {
+    frequency: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'weekdays';
+    interval: number;
+    until?: any;
+    count?: number;
+    daysOfWeek?: number[];
+  };
 }
 
 export interface MedicalRecord {

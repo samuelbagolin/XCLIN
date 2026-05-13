@@ -165,7 +165,7 @@ export function Patients() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold">
@@ -204,7 +204,7 @@ export function Patients() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
-                      {patient.birthDate.split('-').reverse().join('/')}
+                      {patient.birthDate ? patient.birthDate.split('-').reverse().join('/') : '-'}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -247,6 +247,72 @@ export function Patients() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View - Cards */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {loading ? (
+            <div className="p-8 text-center text-slate-400">Carregando...</div>
+          ) : filteredPatients.length === 0 ? (
+            <div className="p-8 text-center text-slate-400">Nenhum paciente encontrado.</div>
+          ) : (
+            filteredPatients.map((patient) => (
+              <div key={patient.id} className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-sm">
+                      {patient.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900">{patient.name}</p>
+                      <p className="text-xs text-slate-500">{patient.birthDate ? patient.birthDate.split('-').reverse().join('/') : 'Sem data'}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {patient.phone && (
+                      <a 
+                        href={`https://wa.me/${patient.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"
+                      >
+                        <MessageSquare size={18} />
+                      </a>
+                    )}
+                    <Link 
+                      to={`/patients/${patient.id}`}
+                      className="p-2 bg-sky-50 text-sky-600 rounded-xl"
+                    >
+                      <ChevronRight size={18} />
+                    </Link>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1">
+                    <p className="text-slate-400 font-bold uppercase tracking-wider">E-mail</p>
+                    <p className="text-slate-700 truncate">{patient.email || '-'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-slate-400 font-bold uppercase tracking-wider">Telefone</p>
+                    <p className="text-slate-700">{patient.phone || '-'}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button 
+                    onClick={() => handleEditPatient(patient)}
+                    className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs"
+                  >
+                    Editar
+                  </button>
+                  <button 
+                    onClick={() => setConfirmDeleteId(patient.id)}
+                    className="flex-1 py-2 rounded-xl border border-rose-100 text-rose-600 font-bold text-xs"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

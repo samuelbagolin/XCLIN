@@ -84,6 +84,22 @@ export default function SignaturePage() {
     window.print();
   };
 
+  const handleShare = async () => {
+    if (!document) return;
+    const shareData = {
+      title: document.title,
+      text: `Documento: ${document.title} - ${document.patientName}`,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error('Share failed', err);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -126,9 +142,16 @@ export default function SignaturePage() {
               <span className="flex items-center gap-1.5"><User size={14} /> Paciente: {document.patientName}</span>
             </div>
           </div>
-          <button onClick={handlePrint} className="btn-secondary flex items-center justify-center gap-2 shadow-sm">
-            <Download size={18} /> Baixar PDF
-          </button>
+          <div className="flex gap-2 print:hidden">
+            {navigator.share && (
+              <button onClick={handleShare} className="btn-secondary flex items-center justify-center gap-2 shadow-sm border-emerald-100 text-emerald-600">
+                <Activity size={18} /> Compartilhar
+              </button>
+            )}
+            <button onClick={handlePrint} className="btn-secondary flex items-center justify-center gap-2 shadow-sm">
+              <Download size={18} /> Baixar PDF
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

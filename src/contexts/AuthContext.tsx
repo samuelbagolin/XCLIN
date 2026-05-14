@@ -17,7 +17,7 @@ interface AuthContextType {
   clinic: Clinic | null;
   loading: boolean;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
-  signUpWithEmail: (email: string, pass: string, name: string, role: any, clinicId: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, name: string, phone: string, role: any, clinicId: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -38,14 +38,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (profileDoc.exists()) {
         profileData = profileDoc.data() as UserProfile;
         
-        // Principal Admin Auto-Upgrade
-        const principalAdminEmail = 'samuel.g.bagolin@hotmail.com';
-        if (email === principalAdminEmail && profileData.role !== 'clinic_admin') {
-          profileData.role = 'clinic_admin';
+        // Super Admin Auto-Upgrade
+        const superAdminEmail = 'samuel.g.bagolin@hotmail.com';
+        if (email === superAdminEmail && profileData.role !== 'super_admin') {
+          profileData.role = 'super_admin';
+          profileData.status = 'active';
           try {
-            await setDoc(doc(db, 'users', uid), { role: 'clinic_admin' }, { merge: true });
+            await setDoc(doc(db, 'users', uid), { 
+              role: 'super_admin',
+              status: 'active'
+            }, { merge: true });
           } catch (e) {
-            console.error("Failed to auto-upgrade admin:", e);
+            console.error("Failed to auto-upgrade super admin:", e);
           }
         }
         
@@ -70,16 +74,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setClinic(null);
         }
       } else {
-        setProfile(null);
-        setClinic(null);
+        // If profile doesn't exist but it's the Super Admin email, create it
+        const superAdminEmail = 'samuel.g.bagolin@hotmail.com';
+        if (email === superAdminEmail) {
+          const newProfile: UserProfile = {
+            uid,
+            email: email,
+            displayName: 'Admin Master',
+            role: 'super_admin',
+            clinicId: '',
+            status: 'active'
+          };
+          try {
+            await setDoc(doc(db, 'users', uid), {
+              ...newProfile,
+              createdAt: serverTimestamp()
+            });
+            setProfile(newProfile);
+            setClinic(null);
+          } catch (e) {
+            console.error("Failed to create super admin profile:", e);
+            setProfile(null);
+          }
+        } else {
+          setProfile(null);
+          setClinic(null);
+        }
       }
     } catch (error) {
       console.error('Error fetching profile/clinic:', error);
-      // If permission denied during getDoc(clinic), it might be because clinic is not active
-      // and security rules blocked it.
-      if (error instanceof Error && error.message.includes('permission-denied')) {
-         // Silently fail, profile/clinic will be null and UI should handle it
-      }
     }
   };
 
@@ -108,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUpWithEmail = async (email: string, pass: string, name: string, role: any, clinicId: string) => {
+  const signUpWithEmail = async (email: string, pass: string, name: string, phone: string, role: any, clinicId: string) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(result.user, { displayName: name });
@@ -117,8 +140,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: result.user.uid,
         email,
         displayName: name,
+        phone,
         role,
-        clinicId
+        clinicId,
+        status: 'pending'
       };
       
       await setDoc(doc(db, 'users', result.user.uid), {

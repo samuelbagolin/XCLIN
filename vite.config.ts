@@ -19,11 +19,7 @@ export default defineConfig(({mode}) => {
       host: '0.0.0.0',
       port: 3000,
       strictPort: true,
-      hmr: process.env.DISABLE_HMR === 'true' ? false : {
-        protocol: 'wss',
-        clientPort: 443,
-        overlay: false,
-      },
+      hmr: false, // Forces HMR off globally to prevent proxy connection errors in this environment
     },
   };
 });

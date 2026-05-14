@@ -27,18 +27,17 @@ export function Onboarding() {
       const clinicRef = await addDoc(collection(db, 'clinics'), {
         name: clinicName,
         ownerId: user.uid,
-        status: 'active',
+        ownerName: profile?.displayName || user.displayName || 'Usuário',
+        ownerEmail: user.email,
+        ownerPhone: profile?.phone || '',
+        status: 'pending',
         createdAt: new Date()
       });
 
-      // 2. Create user profile
+      // 2. Update user profile with clinicId
       await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || 'Usuário',
-        role: 'clinic_admin' as UserRole,
         clinicId: clinicRef.id,
-        createdAt: new Date()
+        updatedAt: new Date()
       }, { merge: true });
 
       await refreshProfile();

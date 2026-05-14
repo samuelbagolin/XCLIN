@@ -9,7 +9,8 @@ if (process.env.NODE_ENV === 'development') {
     m.includes('WebSocket') || 
     m.includes('HMR') || 
     m.includes('vite') || 
-    m.toLowerCase().includes('websocket closed without opened');
+    m.toLowerCase().includes('websocket closed') ||
+    m.toLowerCase().includes('connection to websocket');
 
   window.addEventListener('unhandledrejection', (event) => {
     const msg = event.reason?.message || String(event.reason || '');

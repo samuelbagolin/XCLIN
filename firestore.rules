@@ -6,115 +6,116 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Helper functions
+    // --- Helpers ---
     function isSignedIn() { return request.auth != null; }
     
     function getUserData() {
       let path = /databases/$(database)/documents/users/$(request.auth.uid);
       return exists(path) ? get(path).data : null;
     }
-    
-    function isClinicActive() {
+
+    function isSuperAdmin() {
       let uData = getUserData();
-      if (uData == null || !uData.keys().contains('clinicId') || uData.get('clinicId', '') == '') {
-        return true;
-      }
-      let cPath = /databases/$(database)/documents/clinics/$(uData.clinicId);
-      return exists(cPath) && get(cPath).data.get('status', '') == 'active';
+      return isSignedIn() && uData != null && uData.role == 'super_admin';
     }
     
-    function isClinicAdmin() {
-      let uData = getUserData();
-      return isSignedIn() && uData != null && uData.get('role', '') == 'clinic_admin' && isClinicActive();
+    function getClinicData(clinicId) {
+      let path = /databases/$(database)/documents/clinics/$(clinicId);
+      return exists(path) ? get(path).data : null;
     }
-    
-    function isStaff() {
-      let uData = getUserData();
-      if (uData == null) return false;
-      let role = uData.get('role', '');
-      return isSignedIn() && 
-             isClinicActive() &&
-             (role == 'clinic_admin' || role == 'receptionist' || role == 'professional' || role == 'financial' || role == 'secretary');
+
+    function isClinicActive(clinicId) {
+      let cData = getClinicData(clinicId);
+      return cData != null && cData.status == 'active';
     }
-    
+
+    function isClinicPending(clinicId) {
+      let cData = getClinicData(clinicId);
+      return cData != null && cData.status == 'pending';
+    }
+
     function userClinicId() {
       let uData = getUserData();
       return uData != null ? uData.get('clinicId', '') : '';
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128;
+    function isStaff(clinicId) {
+      let uData = getUserData();
+      if (uData == null || uData.get('clinicId', '') != clinicId) return false;
+      let role = uData.get('role', '');
+      return isSignedIn() && (role == 'clinic_admin' || role == 'professional' || role == 'receptionist' || role == 'financial' || role == 'secretary');
+    }
+
+    function isClinicAdmin(clinicId) {
+      let uData = getUserData();
+      return isSignedIn() && uData != null && uData.role == 'clinic_admin' && uData.clinicId == clinicId;
     }
 
     // --- Collections ---
 
     // Clinics
     match /clinics/{clinicId} {
-      allow get: if isSignedIn(); 
-      allow create: if isSignedIn() && isValidId(clinicId) && request.resource.data.status == 'active';
-      allow update: if isClinicAdmin() && clinicId == userClinicId() && 
-                    request.resource.data.status == resource.data.status; // Admins can't unblock themselves
+      allow get: if isSignedIn() && (isSuperAdmin() || clinicId == userClinicId());
+      allow list: if isSuperAdmin();
+      allow create: if isSignedIn() && request.resource.data.status == 'pending';
+      allow update: if isSuperAdmin() || (isClinicAdmin(clinicId) && request.resource.data.status == resource.data.status);
+      allow delete: if isSuperAdmin();
     }
 
-    // User Profiles
+    // Users
     match /users/{userId} {
-      allow get: if isSignedIn() && (userId == request.auth.uid || isClinicAdmin());
-      allow list: if isClinicAdmin() && resource.data.get('clinicId', '') == userClinicId();
-      allow create: if isSignedIn(); 
-      allow update: if isSignedIn() && (userId == request.auth.uid || isClinicAdmin());
-      allow delete: if isClinicAdmin() && resource.data.get('clinicId', '') == userClinicId();
+      allow get: if isSignedIn() && (userId == request.auth.uid || isSuperAdmin() || isClinicAdmin(userClinicId()));
+      allow list: if isSuperAdmin() || (isClinicAdmin(userClinicId()));
+      allow create: if isSignedIn() && request.resource.data.role != 'super_admin';
+      allow update: if isSuperAdmin() || 
+                    (userId == request.auth.uid && request.resource.data.role == resource.data.role && request.resource.data.status == resource.data.status) ||
+                    (isClinicAdmin(userClinicId()) && request.resource.data.clinicId == resource.data.clinicId);
+      allow delete: if isSuperAdmin() || (isClinicAdmin(userClinicId()) && resource.data.clinicId == userClinicId());
     }
 
-    // Documents
-    match /documents/{docId} {
-      allow get: if true; // Public access for signature (hardened via docId and status check)
-      allow list: if isSignedIn() && isClinicActive() && resource.data.clinicId == userClinicId();
-      allow create: if isSignedIn() && isClinicActive();
-      allow update: if (isSignedIn() && isClinicActive() && resource.data.clinicId == userClinicId()) || 
-                    (resource.data.status != 'signed' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'signedAt', 'signedBy', 'signatureIp', 'viewedAt']));
-      allow delete: if isSignedIn() && isClinicActive() && resource.data.clinicId == userClinicId();
+    // Protected Business Data (Active Clinic Only)
+    match /patients/{id} {
+      allow read: if isSuperAdmin() || (isStaff(resource.data.clinicId) && isClinicActive(resource.data.clinicId));
+      allow create: if isSuperAdmin() || (isStaff(request.resource.data.clinicId) && isClinicActive(request.resource.data.clinicId));
+      allow update: if isSuperAdmin() || (isStaff(resource.data.clinicId) && isClinicActive(resource.data.clinicId));
+      allow delete: if isSuperAdmin() || (isClinicAdmin(resource.data.clinicId) && isClinicActive(resource.data.clinicId));
     }
 
-    // Professionals
-    match /professionals/{profId} {
-      allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
-      allow create, update, delete: if isClinicAdmin();
+    match /appointments/{id} {
+      allow read: if isSuperAdmin() || (isStaff(resource.data.clinicId) && isClinicActive(resource.data.clinicId));
+      allow write: if isSuperAdmin() || (isStaff(request.resource.data.clinicId || resource.data.clinicId) && isClinicActive(request.resource.data.clinicId || resource.data.clinicId));
     }
 
-    // Patients
-    match /patients/{patientId} {
-      allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
-      allow create: if isStaff();
-      allow update: if isStaff() && resource.data.clinicId == userClinicId();
-      allow delete: if isClinicAdmin() && resource.data.clinicId == userClinicId();
+    match /financialTransactions/{id} {
+      allow read: if isSuperAdmin() || (isStaff(resource.data.clinicId) && isClinicActive(resource.data.clinicId));
+      allow write: if isSuperAdmin() || (isStaff(request.resource.data.clinicId || resource.data.clinicId) && isClinicActive(request.resource.data.clinicId || resource.data.clinicId));
     }
 
-    // Appointments
-    match /appointments/{appId} {
-      allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
-      allow create: if isStaff() && request.resource.data.clinicId == userClinicId();
-      allow update: if isStaff() && resource.data.clinicId == userClinicId();
-      allow delete: if isStaff() && resource.data.clinicId == userClinicId();
+    match /professionals/{id} {
+      allow read: if isSuperAdmin() || (isStaff(resource.data.clinicId) && isClinicActive(resource.data.clinicId));
+      allow write: if isSuperAdmin() || (isClinicAdmin(request.resource.data.clinicId || resource.data.clinicId) && isClinicActive(request.resource.data.clinicId || resource.data.clinicId));
     }
 
-    // Medical Records
-    match /medicalRecords/{recordId} {
-      allow get, list: if (isStaff()) && resource.data.clinicId == userClinicId();
-      allow create: if (isStaff()) && request.resource.data.clinicId == userClinicId();
-      allow update, delete: if (isStaff()) && resource.data.clinicId == userClinicId();
+    match /documents/{id} {
+      allow get: if true; // Public access for signatures
+      allow list: if isSuperAdmin() || (isStaff(resource.data.clinicId) && isClinicActive(resource.data.clinicId));
+      allow create: if isSuperAdmin() || (isStaff(request.resource.data.clinicId) && isClinicActive(request.resource.data.clinicId));
+      allow update: if isSuperAdmin() || (isStaff(resource.data.clinicId) && isClinicActive(resource.data.clinicId)) || (resource.data.status != 'signed' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'signedAt', 'signedBy', 'signatureIp', 'viewedAt']));
+      allow delete: if isSuperAdmin() || (isClinicAdmin(resource.data.clinicId) && isClinicActive(resource.data.clinicId));
     }
 
-    // Specialties
-    match /specialties/{specId} {
-      allow get, list: if isSignedIn() && resource.data.clinicId == userClinicId();
-      allow create, update, delete: if isClinicAdmin();
+    match /medicalRecords/{id} {
+      allow read, write: if isSuperAdmin() || (isStaff(resource.data.clinicId || request.resource.data.clinicId) && isClinicActive(resource.data.clinicId || request.resource.data.clinicId));
     }
 
-    // Financial Transactions
-    match /financialTransactions/{transId} {
-      allow get, list: if isStaff() && resource.data.clinicId == userClinicId();
-      allow create: if isStaff() && request.resource.data.clinicId == userClinicId();
-      allow update, delete: if isStaff() && resource.data.clinicId == userClinicId();
+    match /specialties/{id} {
+      allow read: if isSuperAdmin() || (isStaff(resource.data.clinicId) && isClinicActive(resource.data.clinicId));
+      allow write: if isSuperAdmin() || (isClinicAdmin(resource.data.clinicId || request.resource.data.clinicId) && isClinicActive(resource.data.clinicId || request.resource.data.clinicId));
+    }
+
+    // Logs
+    match /admin_logs/{id} {
+      allow read, write: if isSuperAdmin();
     }
   }
 }

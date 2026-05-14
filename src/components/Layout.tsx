@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -10,7 +10,9 @@ import {
   LogOut,
   Menu,
   X,
-  FileText
+  FileText,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -19,6 +21,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { profile, clinic, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     await logout();
@@ -26,25 +29,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
   };
 
   const navItems = [
-    { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['clinic_admin', 'professional', 'receptionist', 'financial'] },
+    { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['clinic_admin', 'professional', 'receptionist', 'financial', 'super_admin'] },
     { to: '/patients', icon: Users, label: 'Pacientes', roles: ['clinic_admin', 'professional', 'receptionist'] },
     { to: '/calendar', icon: CalendarIcon, label: 'Agenda', roles: ['clinic_admin', 'professional', 'receptionist'] },
     { to: '/professionals', icon: Stethoscope, label: 'Profissionais', roles: ['clinic_admin', 'receptionist'] },
     { to: '/financial', icon: DollarSign, label: 'Financeiro', roles: ['clinic_admin', 'financial'] },
     { to: '/documents', icon: FileText, label: 'Documentos', roles: ['clinic_admin', 'professional', 'receptionist'] },
+    { to: '/admin-master', icon: ShieldCheck, label: 'Admin Master', roles: ['super_admin'] },
     { to: '/settings', icon: SettingsIcon, label: 'Configurações', roles: ['clinic_admin'] },
   ];
 
-  const filteredNavItems = navItems.filter(item => 
-    !item.roles || item.roles.includes(profile?.role || '')
-  );
+  const isClinicActive = clinic?.status === 'active' || profile?.role === 'super_admin';
+
+  const filteredNavItems = navItems.filter(item => {
+    if (profile?.role === 'super_admin' && item.to === '/') return false;
+    return !item.roles || item.roles.includes(profile?.role || '');
+  });
+
+  const isItemDisabled = (item: any) => {
+    if (profile?.role === 'super_admin') return false;
+    if (item.to === '/') return false; // Dashboard always accessible to show status
+    return !isClinicActive;
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans">
+    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200">
+      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 shadow-sm z-30">
         <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-sky-600 rounded-xl overflow-hidden flex items-center justify-center text-white shrink-0 shadow-sm shadow-sky-600/20">
+          <div className="w-10 h-10 bg-sky-600 rounded-xl overflow-hidden flex items-center justify-center text-white shrink-0 shadow-lg shadow-sky-600/20">
             {clinic?.logoUrl ? (
               <img src={clinic.logoUrl} alt={clinic.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
@@ -54,22 +67,46 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span className="font-bold text-xl text-slate-800 truncate tracking-tight">{clinic?.name || 'XCLIN'}</span>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1">
-          {filteredNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => `
-                flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors
-                ${isActive 
-                  ? 'bg-sky-50 text-sky-700' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
-              `}
-            >
-              <item.icon size={20} />
-              {item.label}
-            </NavLink>
-          ))}
+        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+          {filteredNavItems.map((item) => {
+            const disabled = isItemDisabled(item);
+            const content = (
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <item.icon size={20} />
+                  {item.label}
+                </div>
+                {disabled && <Lock size={14} className="text-slate-400" />}
+              </div>
+            );
+
+            if (disabled) {
+              return (
+                <div
+                  key={item.to}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 cursor-not-allowed opacity-60"
+                  title="Acesso bloqueado. Aguardando liberação da clínica."
+                >
+                  {content}
+                </div>
+              );
+            }
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => `
+                  flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
+                  ${isActive 
+                    ? 'bg-sky-50 text-sky-700 shadow-sm' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
+                `}
+              >
+                {content}
+              </NavLink>
+            );
+          })}
         </nav>
 
         <div className="p-4 border-t border-slate-100">
@@ -166,22 +203,45 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
               <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-                {filteredNavItems.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={({ isActive }) => `
-                      flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors
-                      ${isActive 
-                        ? 'bg-sky-50 text-sky-700' 
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
-                    `}
-                  >
-                    <item.icon size={22} />
-                    {item.label}
-                  </NavLink>
-                ))}
+                {filteredNavItems.map((item) => {
+                  const disabled = isItemDisabled(item);
+                  const content = (
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-3">
+                        <item.icon size={22} />
+                        {item.label}
+                      </div>
+                      {disabled && <Lock size={16} className="text-slate-400" />}
+                    </div>
+                  );
+
+                  if (disabled) {
+                    return (
+                      <div
+                        key={item.to}
+                        className="flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium text-slate-400 opacity-60"
+                      >
+                        {content}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={({ isActive }) => `
+                        flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors
+                        ${isActive 
+                          ? 'bg-sky-50 text-sky-700' 
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
+                      `}
+                    >
+                      {content}
+                    </NavLink>
+                  );
+                })}
               </nav>
               <div className="p-6 border-t border-slate-100 space-y-4">
                 <div className="flex items-center gap-3 px-4 py-2">

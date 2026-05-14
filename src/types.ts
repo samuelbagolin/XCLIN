@@ -1,4 +1,4 @@
-export type UserRole = 'clinic_admin' | 'professional' | 'receptionist' | 'patient' | 'financial' | 'secretary';
+export type UserRole = 'clinic_admin' | 'professional' | 'receptionist' | 'patient' | 'financial' | 'secretary' | 'super_admin';
 
 export interface UserProfile {
   uid: string;
@@ -6,6 +6,8 @@ export interface UserProfile {
   displayName: string;
   role: UserRole;
   clinicId: string;
+  phone?: string;
+  status?: 'active' | 'pending' | 'blocked';
   professionalId?: string;
   photoURL?: string;
 }
@@ -17,7 +19,13 @@ export interface Clinic {
   address?: string;
   phone?: string;
   ownerId: string;
-  status?: 'active' | 'suspended' | 'pending';
+  ownerName?: string;
+  ownerPhone?: string;
+  ownerEmail?: string;
+  status: 'active' | 'pending' | 'blocked' | 'cancelled';
+  approvedAt?: any;
+  approvedBy?: string;
+  createdAt?: any;
 }
 
 export interface Specialty {

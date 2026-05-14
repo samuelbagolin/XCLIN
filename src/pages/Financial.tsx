@@ -28,7 +28,8 @@ import {
   Calendar,
   AlertCircle,
   BarChart3,
-  ChevronRight
+  ChevronRight,
+  Pencil
 } from 'lucide-react';
 import { FinancialTransaction, Patient } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -57,9 +58,11 @@ export function Financial() {
     repetitions: ''
   });
 
+  const [editingTransId, setEditingTransId] = useState<string | null>(null);
   const [editSeriesMode, setEditSeriesMode] = useState<'none' | 'ask' | 'single' | 'following' | 'all'>('none');
-  const [seriesAction, setSeriesAction] = useState<'delete' | null>(null);
+  const [seriesAction, setSeriesAction] = useState<'delete' | 'edit' | null>(null);
   const [targetTrans, setTargetTrans] = useState<FinancialTransaction | null>(null);
+  const [showSuccessToast, setShowSuccessToast] = useState<string | null>(null);
 
   const generateRecurringTransactions = (baseTransaction: any, count: number) => {
     const transactions = [];
@@ -130,50 +133,97 @@ export function Financial() {
     fetchData();
   }, [clinic]);
 
-  const handleAddTransaction = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddTransaction = async (e?: React.FormEvent, modeOverride?: any) => {
+    if (e) e.preventDefault();
     if (!clinic) return;
+
+    const currentMode = modeOverride || editSeriesMode;
 
     try {
       const transactionDate = new Date(newTrans.date + 'T12:00:00');
-      const recurrenceId = newTrans.isRecurring ? Math.random().toString(36).substring(7) : null;
       
-      // Sanitized payload to avoid any 'undefined' values
-      const payload: any = {
-        type: newTrans.type || 'income',
-        category: newTrans.category || 'Geral',
-        amount: Number(newTrans.amount) || 0,
-        description: newTrans.description || '',
-        date: Timestamp.fromDate(transactionDate),
-        status: newTrans.status || 'pending',
-        patientId: newTrans.patientId || null,
-        patientName: newTrans.patientName || null,
-        clinicId: clinic.id,
-        isRecurring: !!newTrans.isRecurring,
-        recurrenceId: recurrenceId,
-        frequency: newTrans.isRecurring ? (newTrans.frequency || 'monthly') : null,
-        expenseType: newTrans.type === 'expense' ? (newTrans.expenseType || 'fixed') : null,
-        repetitions: newTrans.isRecurring ? (Number(newTrans.repetitions) || 12) : null,
-        createdAt: serverTimestamp()
-      };
+      if (editingTransId) {
+        const transaction = transactions.find(t => t.id === editingTransId);
+        if (transaction?.recurrenceId && currentMode === 'none') {
+          setTargetTrans(transaction);
+          setSeriesAction('edit');
+          return;
+        }
 
-      if (!newTrans.isRecurring) {
-        await addDoc(collection(db, 'financialTransactions'), payload);
+        const updateData: any = {
+          type: newTrans.type,
+          category: newTrans.category,
+          amount: Number(newTrans.amount),
+          description: newTrans.description,
+          date: Timestamp.fromDate(transactionDate),
+          status: newTrans.status,
+          patientId: newTrans.patientId || null,
+          patientName: newTrans.patientName || null,
+          expenseType: newTrans.type === 'expense' ? (newTrans.expenseType || 'fixed') : null,
+          updatedAt: serverTimestamp()
+        };
+
+        if (currentMode === 'single' || !transaction?.recurrenceId) {
+          await updateDoc(doc(db, 'financialTransactions', editingTransId), updateData);
+        } else if (currentMode === 'following') {
+          const q = query(
+            collection(db, 'financialTransactions'),
+            where('recurrenceId', '==', transaction.recurrenceId),
+            where('date', '>=', transaction.date)
+          );
+          const snap = await getDocs(q);
+          const batchPromises = snap.docs.map(d => updateDoc(doc(db, 'financialTransactions', d.id), updateData));
+          await Promise.all(batchPromises);
+        } else if (currentMode === 'all') {
+          const q = query(collection(db, 'financialTransactions'), where('recurrenceId', '==', transaction.recurrenceId));
+          const snap = await getDocs(q);
+          const batchPromises = snap.docs.map(d => updateDoc(doc(db, 'financialTransactions', d.id), updateData));
+          await Promise.all(batchPromises);
+        }
       } else {
-        const count = Number(newTrans.repetitions) || 12;
-        const recurringItems = generateRecurringTransactions(payload, count);
+        const recurrenceId = newTrans.isRecurring ? Math.random().toString(36).substring(7) : null;
         
-        // Save first instance
-        await addDoc(collection(db, 'financialTransactions'), payload);
-        
-        // Save recurring series
-        const batchPromises = recurringItems.map(item => 
-          addDoc(collection(db, 'financialTransactions'), item)
-        );
-        await Promise.all(batchPromises);
+        // Sanitized payload to avoid any 'undefined' values
+        const payload: any = {
+          type: newTrans.type || 'income',
+          category: newTrans.category || 'Geral',
+          amount: Number(newTrans.amount) || 0,
+          description: newTrans.description || '',
+          date: Timestamp.fromDate(transactionDate),
+          status: newTrans.status || 'pending',
+          patientId: newTrans.patientId || null,
+          patientName: newTrans.patientName || null,
+          clinicId: clinic.id,
+          isRecurring: !!newTrans.isRecurring,
+          recurrenceId: recurrenceId,
+          frequency: newTrans.isRecurring ? (newTrans.frequency || 'monthly') : null,
+          expenseType: newTrans.type === 'expense' ? (newTrans.expenseType || 'fixed') : null,
+          repetitions: newTrans.isRecurring ? (Number(newTrans.repetitions) || 12) : null,
+          createdAt: serverTimestamp()
+        };
+
+        if (!newTrans.isRecurring) {
+          await addDoc(collection(db, 'financialTransactions'), payload);
+        } else {
+          const count = Number(newTrans.repetitions) || 12;
+          const recurringItems = generateRecurringTransactions(payload, count);
+          
+          // Save first instance
+          await addDoc(collection(db, 'financialTransactions'), payload);
+          
+          // Save recurring series
+          const batchPromises = recurringItems.map(item => 
+            addDoc(collection(db, 'financialTransactions'), item)
+          );
+          await Promise.all(batchPromises);
+        }
       }
 
       setIsModalOpen(false);
+      setEditingTransId(null);
+      setEditSeriesMode('none');
+      setShowSuccessToast(editingTransId ? 'Lançamento atualizado com sucesso!' : 'Lançamento criado com sucesso!');
+      setTimeout(() => setShowSuccessToast(null), 3000);
       setNewTrans({
         type: 'income',
         category: '',
@@ -192,6 +242,27 @@ export function Financial() {
     } catch (err: any) {
       handleFirestoreError(err, OperationType.WRITE, 'financialTransactions');
     }
+  };
+
+  const handleEdit = (t: FinancialTransaction) => {
+    const tDate = (t.date as any).toDate ? (t.date as any).toDate().toISOString().split('T')[0] : new Date(t.date).toISOString().split('T')[0];
+    setEditingTransId(t.id);
+    setNewTrans({
+      type: t.type,
+      category: t.category,
+      amount: t.amount.toString(),
+      description: t.description,
+      date: tDate,
+      status: t.status as any,
+      patientId: t.patientId || '',
+      patientName: t.patientName || '',
+      isRecurring: !!t.isRecurring,
+      frequency: t.frequency || 'monthly',
+      expenseType: t.expenseType || 'fixed',
+      repetitions: t.repetitions?.toString() || ''
+    });
+    setEditSeriesMode('none');
+    setIsModalOpen(true);
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
@@ -260,78 +331,187 @@ export function Financial() {
         <head>
           <title>Recibo - ${clinic?.name}</title>
           <style>
-            body { font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; }
-            .receipt-container { border: 1px solid #e2e8f0; padding: 50px; border-radius: 16px; max-width: 700px; margin: 0 auto; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); position: relative; overflow: hidden; }
-            .receipt-container::before { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: #0284c7; }
-            .header { display: flex; justify-content: space-between; align-items: start; border-bottom: 2px solid #f1f5f9; margin-bottom: 40px; padding-bottom: 20px; }
-            .clinic-info h1 { margin: 0; color: #0f172a; font-size: 1.5em; }
-            .clinic-info p { margin: 5px 0; color: #64748b; font-size: 0.9em; }
-            .receipt-title { text-align: right; }
-            .receipt-title h2 { margin: 0; color: #0284c7; letter-spacing: 2px; }
-            .receipt-title p { margin: 5px 0; color: #94a3b8; font-weight: bold; }
+            body { font-family: 'Inter', sans-serif; padding: 40px; color: #334155; line-height: 1.6; background: #f8fafc; }
+            .receipt-container { 
+              background: white;
+              border: 1px solid #e2e8f0; 
+              padding: 60px; 
+              border-radius: 24px; 
+              max-width: 800px; 
+              margin: 40px auto; 
+              box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); 
+              position: relative; 
+              overflow: hidden; 
+            }
+            .brand-line { 
+              position: absolute; 
+              top: 0; 
+              left: 0; 
+              width: 100%; 
+              height: 12px; 
+              background: linear-gradient(90deg, #0284c7, #38bdf8); 
+            }
+            .header { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: start; 
+              border-bottom: 2px solid #f1f5f9; 
+              margin-bottom: 50px; 
+              padding-bottom: 30px; 
+            }
+            .clinic-info h1 { margin: 0; color: #0f172a; font-size: 2em; font-weight: 900; letter-spacing: -0.025em; }
+            .clinic-info p { margin: 8px 0; color: #64748b; font-size: 1em; font-weight: 500; }
+            .receipt-details { text-align: right; }
+            .receipt-details h2 { margin: 0; color: #0284c7; letter-spacing: 4px; font-weight: 900; font-size: 1.2em; }
+            .receipt-number { margin: 8px 0; color: #94a3b8; font-weight: bold; font-size: 0.9em; }
+            .receipt-status { 
+              display: inline-block;
+              padding: 4px 12px;
+              background: #f0fdf4;
+              color: #166534;
+              border-radius: 9999px;
+              font-size: 0.75em;
+              font-weight: 800;
+              text-transform: uppercase;
+              margin-top: 10px;
+            }
             
-            .content { margin-bottom: 40px; }
-            .amount-box { background: #f0f9ff; border: 2px solid #bae6fd; padding: 20px; border-radius: 12px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
-            .amount-label { color: #0369a1; font-weight: bold; text-transform: uppercase; font-size: 0.8em; }
-            .amount-value { color: #0c4a6e; font-size: 2em; font-weight: 800; }
+            .content { margin-bottom: 50px; }
+            .amount-card { 
+              background: #f0f9ff; 
+              border: 2px solid #bae6fd; 
+              padding: 30px; 
+              border-radius: 20px; 
+              margin-bottom: 40px; 
+              text-align: center;
+            }
+            .amount-label { color: #0369a1; font-weight: 800; text-transform: uppercase; font-size: 0.85em; letter-spacing: 0.05em; margin-bottom: 10px; display: block;}
+            .amount-value { color: #0c4a6e; font-size: 3em; font-weight: 900; }
             
-            .text-block { font-size: 1.1em; color: #334155; }
-            .highlight { font-weight: bold; color: #0f172a; border-bottom: 1px dashed #cbd5e1; }
+            .description-box { 
+              font-size: 1.2em; 
+              color: #475569; 
+              line-height: 1.8;
+              text-align: justify;
+            }
+            .highlight { font-weight: 800; color: #0f172a; text-decoration: underline decoration-sky-500/30 underline-offset-4; }
             
-            .footer { margin-top: 60px; display: flex; flex-direction: column; align-items: center; gap: 40px; }
-            .date-place { color: #64748b; font-size: 0.9em; }
-            .signature-box { border-top: 1px solid #334155; min-width: 300px; text-align: center; padding-top: 10px; }
-            .signature-box p { margin: 0; font-weight: bold; color: #0f172a; }
-            .signature-box span { font-size: 0.8em; color: #64748b; }
+            .info-grid { 
+              display: grid; 
+              grid-template-cols: 1fr 1fr; 
+              gap: 20px; 
+              margin-top: 40px;
+              padding: 20px;
+              background: #f8fafc;
+              border-radius: 16px;
+            }
+            .info-item { display: flex; flex-direction: column; gap: 4px; }
+            .info-label { font-size: 0.7em; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+            .info-value { font-size: 0.9em; font-weight: 600; color: #334155; }
+
+            .footer { margin-top: 80px; display: flex; flex-direction: column; align-items: center; gap: 60px; }
+            .signature-area { 
+              border-top: 2px solid #e2e8f0; 
+              width: 100%;
+              max-width: 400px; 
+              text-align: center; 
+              padding-top: 15px; 
+            }
+            .signature-name { margin: 0; font-weight: 900; color: #0f172a; font-size: 1.1em; }
+            .signature-label { font-size: 0.8em; font-weight: 600; color: #64748b; margin-top: 4px; display: block; }
             
+            .watermark {
+              position: absolute;
+              bottom: -50px;
+              right: -50px;
+              font-size: 15em;
+              font-weight: 900;
+              color: #f1f5f9;
+              z-index: -1;
+              opacity: 0.5;
+              pointer-events: none;
+            }
+
             @media print {
-              body { padding: 0; }
-              .receipt-container { border: none; box-shadow: none; padding: 20px; }
+              body { background: white; padding: 0; }
+              .receipt-container { 
+                border: none; 
+                box-shadow: none; 
+                padding: 40px; 
+                margin: 0;
+                max-width: 100%;
+              }
             }
           </style>
         </head>
         <body>
           <div class="receipt-container">
+            <div class="brand-line"></div>
+            <div class="watermark">${t.type === 'income' ? 'CRED' : 'DEBT'}</div>
+            
             <div class="header">
               <div class="clinic-info">
-                <h1>${clinic?.name || 'Clínica'}</h1>
-                <p>Gestão de Saúde e Bem-estar</p>
+                <h1>${clinic?.name || 'XCLIN'}</h1>
+                <p>Centro Clínico Especializado</p>
+                <p>Sistema XCLIN - Saúde e Tecnologia</p>
               </div>
-              <div class="receipt-title">
+              <div class="receipt-details">
                 <h2>RECIBO</h2>
-                <p>Nº ${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}</p>
+                <div class="receipt-number">ID: #${t.id.slice(-6).toUpperCase()}</div>
+                <div class="receipt-status">${t.status === 'paid' ? (t.type === 'income' ? 'RECEBIDO' : 'PAGO') : 'PENDENTE'}</div>
               </div>
             </div>
             
             <div class="content">
-              <div class="amount-box">
-                <span class="amount-label">Valor Recebido</span>
+              <div class="amount-card">
+                <span class="amount-label">Valor do Lançamento</span>
                 <span class="amount-value">R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
               
-              <p class="text-block">
-                Recebemos de <span class="highlight">${t.patientName || '_______________________________________'}</span>,
-                a quantia supracitada de <span class="highlight">R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>,
+              <div class="description-box">
+                Confirmamos que foi ${t.type === 'income' ? 'recebido de' : 'pago a'} <span class="highlight">${t.patientName || (t.type === 'income' ? '____________________' : 'Fornecedor')}</span>,
+                a importância de <span class="highlight">R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>,
                 referente a <span class="highlight">${t.description || t.category}</span>.
-              </p>
+              </div>
+
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Categoria</span>
+                  <span class="info-value">${t.category}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Data de Emissão</span>
+                  <span class="info-value">${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(tDate)}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Tipo de Lançamento</span>
+                  <span class="info-value">${t.type === 'income' ? 'Receita' : 'Despesa'} ${t.isRecurring ? '(Recorrente)' : ''}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Status Financeiro</span>
+                  <span class="info-value">${t.status === 'paid' ? 'Liquidado' : 'Aguardando Pagamento'}</span>
+                </div>
+              </div>
             </div>
             
             <div class="footer">
-              <div class="date-place">
-                ${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(tDate)}
+              <div class="signature-area">
+                <p class="signature-name">${clinic?.name || 'Responsável Clínico'}</p>
+                <span class="signature-label">Carimbo e Assinatura</span>
               </div>
               
-              <div class="signature-box">
-                <p>${clinic?.name || '__________________________'}</p>
-                <span>Assinatura do Responsável</span>
-              </div>
+              <p style="font-size: 0.7em; color: #94a3b8; font-weight: 500;">
+                Documento gerado eletronicamente em ${new Date().toLocaleString('pt-BR')} pelo sistema XCLIN.
+              </p>
             </div>
           </div>
         </body>
       </html>
     `);
     printWindow.document.close();
-    printWindow.print();
+    printWindow.setTimeout(() => {
+      printWindow.print();
+    }, 500);
   };
 
   const filteredTransactions = transactions.filter(t => {
@@ -373,6 +553,22 @@ export function Financial() {
 
   return (
     <div className="space-y-6">
+      {/* Success Toast */}
+      <AnimatePresence>
+        {showSuccessToast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 font-bold"
+          >
+            <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center text-white">
+              <Plus size={14} />
+            </div>
+            {showSuccessToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-sky-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-sky-600/20">
@@ -533,19 +729,25 @@ export function Financial() {
                       {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        {t.type === 'income' && (
-                          <button 
-                            onClick={() => handlePrintReceipt(t)}
-                            className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all"
-                            title="Imprimir Recibo"
-                          >
-                            <Printer size={18} />
-                          </button>
-                        )}
+                      <div className="flex items-center justify-end gap-1 transition-all">
+                        <button 
+                          onClick={() => handleEdit(t)}
+                          className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all"
+                          title="Editar"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handlePrintReceipt(t)}
+                          className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all"
+                          title="Imprimir Recibo"
+                        >
+                          <Printer size={18} />
+                        </button>
                         <button 
                           onClick={() => setDeleteConfirmId(t.id)}
                           className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          title="Excluir"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -596,11 +798,12 @@ export function Financial() {
                     {t.status === 'paid' ? 'CONCLUÍDO' : 'PENDENTE'}
                   </button>
                   <div className="flex gap-2">
-                    {t.type === 'income' && (
-                      <button onClick={() => handlePrintReceipt(t)} className="p-2 bg-slate-50 text-slate-500 rounded-lg">
-                        <Printer size={16} />
-                      </button>
-                    )}
+                    <button onClick={() => handleEdit(t)} className="p-2 bg-sky-50 text-sky-600 rounded-lg">
+                      <Pencil size={16} />
+                    </button>
+                    <button onClick={() => handlePrintReceipt(t)} className="p-2 bg-slate-50 text-slate-500 rounded-lg">
+                      <Printer size={16} />
+                    </button>
                     <button onClick={() => setDeleteConfirmId(t.id)} className="p-2 bg-rose-50 text-rose-600 rounded-lg">
                       <Trash2 size={16} />
                     </button>
@@ -636,8 +839,16 @@ export function Financial() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Novo Lançamento</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold">FECHAR</button>
+              <h3 className="text-xl font-bold text-slate-900">{editingTransId ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
+              <button 
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingTransId(null);
+                }} 
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                FECHAR
+              </button>
             </div>
             <form onSubmit={handleAddTransaction} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div className="flex gap-4 p-1 bg-slate-100 rounded-xl">
@@ -667,9 +878,22 @@ export function Financial() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
-                <input type="date" required className="input-field" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                  <select 
+                    className="input-field"
+                    value={newTrans.status}
+                    onChange={e => setNewTrans({...newTrans, status: e.target.value as 'paid' | 'pending'})}
+                  >
+                    <option value="paid">{newTrans.type === 'income' ? 'Recebido' : 'Pago'}</option>
+                    <option value="pending">Pendente</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
+                  <input type="date" required className="input-field" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} />
+                </div>
               </div>
 
               {newTrans.type === 'income' && (
@@ -758,8 +982,19 @@ export function Financial() {
               </div>
 
               <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
-                <button type="submit" className="flex-1 btn-primary">Lançar</button>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setEditingTransId(null);
+                  }} 
+                  className="flex-1 btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="flex-1 btn-primary">
+                  {editingTransId ? 'Salvar Alterações' : 'Lançar'}
+                </button>
               </div>
             </form>
           </div>
@@ -767,42 +1002,51 @@ export function Financial() {
       )}
 
       {/* Series Action Modal */}
-      {seriesAction === 'delete' && (
+      {(seriesAction === 'delete' || seriesAction === 'edit') && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl space-y-6"
           >
-            <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto ring-8 ring-rose-50/50">
+            <div className={`${seriesAction === 'delete' ? 'bg-rose-50 text-rose-600' : 'bg-sky-50 text-sky-600'} w-16 h-16 rounded-2xl flex items-center justify-center mx-auto ring-8 ${seriesAction === 'delete' ? 'ring-rose-50/50' : 'ring-sky-50/50'}`}>
               <RefreshCw size={32} />
             </div>
             
             <div className="text-center space-y-2">
               <h3 className="text-2xl font-bold text-slate-900">Lançamento Recorrente</h3>
               <p className="text-slate-500 text-sm">
-                Este lançamento faz parte de uma série. O que deseja excluir?
+                Este lançamento faz parte de uma série. O que deseja {seriesAction === 'delete' ? 'excluir' : 'editar'}?
               </p>
             </div>
 
             <div className="space-y-3">
               <button 
-                onClick={() => handleDelete(targetTrans!.id, 'single')}
-                className="w-full py-4 px-6 rounded-2xl border-2 border-slate-100 hover:border-rose-500 hover:bg-rose-50 text-left transition-all"
+                onClick={() => {
+                  if (seriesAction === 'delete') handleDelete(targetTrans!.id, 'single');
+                  else handleAddTransaction(undefined, 'single');
+                }}
+                className={`w-full py-4 px-6 rounded-2xl border-2 border-slate-100 hover:border-${seriesAction === 'delete' ? 'rose' : 'sky'}-500 hover:bg-${seriesAction === 'delete' ? 'rose' : 'sky'}-50 text-left transition-all`}
               >
                 <div className="font-bold text-slate-800">Apenas este</div>
               </button>
 
               <button 
-                onClick={() => handleDelete(targetTrans!.id, 'following')}
-                className="w-full py-4 px-6 rounded-2xl border-2 border-slate-100 hover:border-rose-500 hover:bg-rose-50 text-left transition-all"
+                onClick={() => {
+                  if (seriesAction === 'delete') handleDelete(targetTrans!.id, 'following');
+                  else handleAddTransaction(undefined, 'following');
+                }}
+                className={`w-full py-4 px-6 rounded-2xl border-2 border-slate-100 hover:border-${seriesAction === 'delete' ? 'rose' : 'sky'}-500 hover:bg-${seriesAction === 'delete' ? 'rose' : 'sky'}-50 text-left transition-all`}
               >
                 <div className="font-bold text-slate-800">Este e os próximos</div>
               </button>
 
               <button 
-                onClick={() => handleDelete(targetTrans!.id, 'all')}
-                className="w-full py-4 px-6 rounded-2xl border-2 border-slate-100 hover:border-rose-500 hover:bg-rose-50 text-left transition-all"
+                onClick={() => {
+                  if (seriesAction === 'delete') handleDelete(targetTrans!.id, 'all');
+                  else handleAddTransaction(undefined, 'all');
+                }}
+                className={`w-full py-4 px-6 rounded-2xl border-2 border-slate-100 hover:border-${seriesAction === 'delete' ? 'rose' : 'sky'}-500 hover:bg-${seriesAction === 'delete' ? 'rose' : 'sky'}-50 text-left transition-all`}
               >
                 <div className="font-bold text-slate-800">Toda a série</div>
               </button>

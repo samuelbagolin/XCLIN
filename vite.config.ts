@@ -22,6 +22,7 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR === 'true' ? false : {
         protocol: 'wss',
         clientPort: 443,
+        overlay: false,
       },
     },
   };

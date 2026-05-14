@@ -23,9 +23,15 @@ import {
   Filter,
   ArrowUpCircle,
   ArrowDownCircle,
-  Printer
+  Printer,
+  RefreshCw,
+  Calendar,
+  AlertCircle,
+  BarChart3,
+  ChevronRight
 } from 'lucide-react';
 import { FinancialTransaction, Patient } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function Financial() {
   const { clinic } = useAuth();
@@ -44,8 +50,52 @@ export function Financial() {
     date: new Date().toISOString().split('T')[0],
     status: 'paid' as 'paid' | 'pending',
     patientId: '',
-    patientName: ''
+    patientName: '',
+    isRecurring: false,
+    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly',
+    expenseType: 'fixed' as 'fixed' | 'variable',
+    repetitions: ''
   });
+
+  const [editSeriesMode, setEditSeriesMode] = useState<'none' | 'ask' | 'single' | 'following' | 'all'>('none');
+  const [seriesAction, setSeriesAction] = useState<'delete' | null>(null);
+  const [targetTrans, setTargetTrans] = useState<FinancialTransaction | null>(null);
+
+  const generateRecurringTransactions = (baseTransaction: any, count: number) => {
+    const transactions = [];
+    const startDate = baseTransaction.date.toDate ? baseTransaction.date.toDate() : new Date(baseTransaction.date);
+    const dayOfMonth = startDate.getDate();
+    
+    let currentDate = new Date(startDate);
+    
+    for (let i = 1; i < count; i++) {
+      const nextDate = new Date(currentDate);
+      
+      if (baseTransaction.frequency === 'daily') {
+        nextDate.setDate(nextDate.getDate() + 1);
+      } else if (baseTransaction.frequency === 'weekly') {
+        nextDate.setDate(nextDate.getDate() + 7);
+      } else if (baseTransaction.frequency === 'monthly') {
+        // Precise monthly logic: same day of month
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        // Handle month overflow (e.g., Jan 31 -> Feb 28/29)
+        if (nextDate.getDate() !== dayOfMonth) {
+          nextDate.setDate(0); // Set to last day of previous month
+        }
+      }
+      
+      const { id, ...payloadWithoutId } = baseTransaction;
+      
+      transactions.push({
+        ...payloadWithoutId,
+        date: Timestamp.fromDate(nextDate),
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+      currentDate = nextDate;
+    }
+    return transactions;
+  };
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -85,18 +135,44 @@ export function Financial() {
     if (!clinic) return;
 
     try {
-      // Use mid-day to avoid timezone shifting issues when converting from date string
       const transactionDate = new Date(newTrans.date + 'T12:00:00');
+      const recurrenceId = newTrans.isRecurring ? Math.random().toString(36).substring(7) : null;
       
-      const payload = {
-        ...newTrans,
-        amount: Number(newTrans.amount),
+      // Sanitized payload to avoid any 'undefined' values
+      const payload: any = {
+        type: newTrans.type || 'income',
+        category: newTrans.category || 'Geral',
+        amount: Number(newTrans.amount) || 0,
+        description: newTrans.description || '',
         date: Timestamp.fromDate(transactionDate),
+        status: newTrans.status || 'pending',
+        patientId: newTrans.patientId || null,
+        patientName: newTrans.patientName || null,
         clinicId: clinic.id,
+        isRecurring: !!newTrans.isRecurring,
+        recurrenceId: recurrenceId,
+        frequency: newTrans.isRecurring ? (newTrans.frequency || 'monthly') : null,
+        expenseType: newTrans.type === 'expense' ? (newTrans.expenseType || 'fixed') : null,
+        repetitions: newTrans.isRecurring ? (Number(newTrans.repetitions) || 12) : null,
         createdAt: serverTimestamp()
       };
 
-      await addDoc(collection(db, 'financialTransactions'), payload);
+      if (!newTrans.isRecurring) {
+        await addDoc(collection(db, 'financialTransactions'), payload);
+      } else {
+        const count = Number(newTrans.repetitions) || 12;
+        const recurringItems = generateRecurringTransactions(payload, count);
+        
+        // Save first instance
+        await addDoc(collection(db, 'financialTransactions'), payload);
+        
+        // Save recurring series
+        const batchPromises = recurringItems.map(item => 
+          addDoc(collection(db, 'financialTransactions'), item)
+        );
+        await Promise.all(batchPromises);
+      }
+
       setIsModalOpen(false);
       setNewTrans({
         type: 'income',
@@ -106,7 +182,11 @@ export function Financial() {
         date: new Date().toISOString().split('T')[0],
         status: 'paid',
         patientId: '',
-        patientName: ''
+        patientName: '',
+        isRecurring: false,
+        frequency: 'monthly',
+        expenseType: 'fixed',
+        repetitions: ''
       });
       fetchData();
     } catch (err: any) {
@@ -127,10 +207,42 @@ export function Financial() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, modeOverride?: any) => {
+    const transaction = transactions.find(t => t.id === id);
+    const currentMode = modeOverride || editSeriesMode;
+
+    if (transaction?.recurrenceId && currentMode === 'none') {
+      setTargetTrans(transaction);
+      setSeriesAction('delete');
+      return;
+    }
+
     try {
-      await deleteDoc(doc(db, 'financialTransactions', id));
+      if (currentMode === 'single' || !transaction?.recurrenceId) {
+        await deleteDoc(doc(db, 'financialTransactions', id));
+      } else if (currentMode === 'following') {
+        const q = query(
+          collection(db, 'financialTransactions'),
+          where('recurrenceId', '==', transaction.recurrenceId),
+          where('date', '>=', transaction.date)
+        );
+        const snap = await getDocs(q);
+        const batchPromises = snap.docs.map(d => deleteDoc(doc(db, 'financialTransactions', d.id)));
+        await Promise.all(batchPromises);
+      } else if (currentMode === 'all') {
+        const q = query(
+          collection(db, 'financialTransactions'),
+          where('recurrenceId', '==', transaction.recurrenceId)
+        );
+        const snap = await getDocs(q);
+        const batchPromises = snap.docs.map(d => deleteDoc(doc(db, 'financialTransactions', d.id)));
+        await Promise.all(batchPromises);
+      }
+
       setDeleteConfirmId(null);
+      setEditSeriesMode('none');
+      setTargetTrans(null);
+      setSeriesAction(null);
       fetchData();
     } catch (err: any) {
       handleFirestoreError(err, OperationType.DELETE, `financialTransactions/${id}`);
@@ -234,44 +346,97 @@ export function Financial() {
   const totalExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const recurringIncomeMonth = filteredTransactions.filter(t => {
+    const tDate = (t.date as any).toDate ? (t.date as any).toDate() : new Date(t.date);
+    return t.type === 'income' && t.isRecurring && tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+  }).reduce((acc, t) => acc + t.amount, 0);
+
+  const fixedExpensesMonth = filteredTransactions.filter(t => {
+    const tDate = (t.date as any).toDate ? (t.date as any).toDate() : new Date(t.date);
+    return t.type === 'expense' && t.expenseType === 'fixed' && tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+  }).reduce((acc, t) => acc + t.amount, 0);
+
+  const overduePayments = filteredTransactions.filter(t => {
+    const tDate = (t.date as any).toDate ? (t.date as any).toDate() : new Date(t.date);
+    return t.status === 'pending' && tDate < now;
+  }).length;
+
+  const upcomingPayments = filteredTransactions.filter(t => {
+    const tDate = (t.date as any).toDate ? (t.date as any).toDate() : new Date(t.date);
+    const inNext7Days = tDate > now && tDate <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return t.status === 'pending' && inNext7Days;
+  }).length;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 font-sans">Financeiro</h1>
-          <p className="text-slate-500">Controle o fluxo de caixa da sua clínica.</p>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-sky-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-sky-600/20">
+            <DollarSign size={24} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 font-sans">Financeiro</h1>
+            <p className="text-slate-500 text-sm">Controle o fluxo de caixa e recorrências da clínica.</p>
+          </div>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
           className="btn-primary"
         >
           <Plus size={18} />
-          Nova Lançamento
+          Novo Lançamento
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="medical-card p-6 bg-white">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="medical-card p-6 bg-white border-b-4 border-b-emerald-500 overflow-hidden relative group hover:shadow-xl transition-all">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-slate-500">Receitas</span>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><TrendingUp size={20} /></div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saldo Geral</span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform"><TrendingUp size={20} /></div>
           </div>
-          <h3 className="text-2xl font-bold text-slate-900">R$ {totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+          <h3 className={`text-2xl font-black ${balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">Balanço total do período</p>
         </div>
-        <div className="medical-card p-6 bg-white">
+
+        <div className="medical-card p-6 bg-white border-b-4 border-b-sky-500 overflow-hidden relative group hover:shadow-xl transition-all">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-slate-500">Despesas</span>
-            <div className="p-2 bg-red-50 text-red-600 rounded-lg"><TrendingDown size={20} /></div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Recorrência (Mês)</span>
+            <div className="p-2 bg-sky-50 text-sky-600 rounded-xl group-hover:scale-110 transition-transform"><RefreshCw size={20} /></div>
           </div>
-          <h3 className="text-2xl font-bold text-slate-900">R$ {totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+          <h3 className="text-2xl font-black text-slate-900">
+            R$ {recurringIncomeMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-[10px] text-emerald-600 mt-1 font-bold">Receitas recorrentes previstas</p>
         </div>
-        <div className="medical-card p-6 bg-white border-l-4 border-l-rose-500">
+
+        <div className="medical-card p-6 bg-white border-b-4 border-b-red-500 overflow-hidden relative group hover:shadow-xl transition-all">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-slate-500">Saldo Geral</span>
-            <div className="p-2 bg-rose-50 text-rose-600 rounded-lg"><DollarSign size={20} /></div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Custos Fixos</span>
+            <div className="p-2 bg-red-50 text-red-600 rounded-xl group-hover:scale-110 transition-transform"><TrendingDown size={20} /></div>
           </div>
-          <h3 className={`text-2xl font-bold ${balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+          <h3 className="text-2xl font-black text-slate-900">
+            R$ {fixedExpensesMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-[10px] text-red-600 mt-1 font-bold">Total de despesas fixas</p>
+        </div>
+
+        <div className="medical-card p-6 bg-white border-b-4 border-b-amber-500 overflow-hidden relative group hover:shadow-xl transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pendências</span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform"><AlertCircle size={20} /></div>
+          </div>
+          <div className="flex items-end gap-2">
+            <h3 className="text-2xl font-black text-amber-600">{overduePayments}</h3>
+            <span className="text-xs font-bold text-slate-400 mb-1.5 uppercase">Atrasados</span>
+          </div>
+          <p className="text-[10px] text-slate-500 mt-1 font-medium">{upcomingPayments} próximos vencimentos</p>
         </div>
       </div>
 
@@ -301,7 +466,7 @@ export function Financial() {
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold border-b border-slate-100">
@@ -320,7 +485,7 @@ export function Financial() {
                 <tr><td colSpan={6} className="p-12 text-center text-slate-400">Nenhum lançamento encontrado.</td></tr>
               ) : (
                 filteredTransactions.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={t.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {(t.date as any).toDate ? (t.date as any).toDate().toLocaleDateString('pt-BR') : new Date(t.date).toLocaleDateString('pt-BR')}
                     </td>
@@ -328,10 +493,11 @@ export function Financial() {
                       <button 
                         onClick={() => handleToggleStatus(t.id, t.status || 'paid')}
                         className={`
-                          px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1
-                          ${(t.status === 'paid' || !t.status) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}
+                          px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all
+                          ${(t.status === 'paid' || !t.status) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700 shadow-sm'}
                         `}
                       >
+                        <div className={`w-1.5 h-1.5 rounded-full ${(t.status === 'paid' || !t.status) ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
                         {(t.status === 'paid' || !t.status) ? (t.type === 'income' ? 'Recebido' : 'Pago') : 'Pendente'}
                       </button>
                     </td>
@@ -339,25 +505,39 @@ export function Financial() {
                       <div className="flex items-center gap-3">
                         {t.type === 'income' ? <ArrowUpCircle className="text-emerald-500" size={18} /> : <ArrowDownCircle className="text-red-500" size={18} />}
                         <div>
-                          <p className="font-medium text-slate-800">{t.description}</p>
-                          {t.patientName && <p className="text-[10px] text-sky-600 font-bold uppercase">{t.patientName}</p>}
+                          <p className="font-medium text-slate-800 flex items-center gap-2">
+                            {t.description}
+                            {t.isRecurring && (
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase flex items-center gap-1 ${t.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                <RefreshCw size={8} /> Recorrente
+                              </span>
+                            )}
+                          </p>
+                          {t.patientName && <p className="text-[10px] text-sky-600 font-bold uppercase tracking-tight">{t.patientName}</p>}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
-                        {t.category}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider w-fit">
+                          {t.category}
+                        </span>
+                        {t.expenseType && (
+                          <span className={`text-[9px] font-bold uppercase ${t.expenseType === 'fixed' ? 'text-red-600' : 'text-amber-600'}`}>
+                            {t.expenseType === 'fixed' ? 'Fixa' : 'Variável'}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className={`px-6 py-4 text-right font-bold text-sm ${t.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
                       {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         {t.type === 'income' && (
                           <button 
                             onClick={() => handlePrintReceipt(t)}
-                            className="p-2 text-slate-300 hover:text-sky-600 transition-colors"
+                            className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all"
                             title="Imprimir Recibo"
                           >
                             <Printer size={18} />
@@ -365,7 +545,7 @@ export function Financial() {
                         )}
                         <button 
                           onClick={() => setDeleteConfirmId(t.id)}
-                          className="p-2 text-slate-300 hover:text-red-600 transition-colors"
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -376,6 +556,59 @@ export function Financial() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View - Cards */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {loading ? (
+            <div className="p-8 text-center text-slate-400">Carregando...</div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="p-8 text-center text-slate-400">Nenhum lançamento.</div>
+          ) : (
+            filteredTransactions.map((t) => (
+              <div key={t.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                      {t.type === 'income' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-slate-900 text-sm">{t.description}</p>
+                        {t.isRecurring && <RefreshCw size={12} className="text-sky-600" />}
+                      </div>
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                        {(t.date as any).toDate ? (t.date as any).toDate().toLocaleDateString('pt-BR') : new Date(t.date).toLocaleDateString('pt-BR')}
+                        {t.expenseType && ` • ${t.expenseType === 'fixed' ? 'Fixa' : 'Variável'}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`text-right font-black ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between pt-1">
+                  <button 
+                    onClick={() => handleToggleStatus(t.id, t.status || 'paid')}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${t.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700 ring-1 ring-amber-200'}`}
+                  >
+                    {t.status === 'paid' ? 'CONCLUÍDO' : 'PENDENTE'}
+                  </button>
+                  <div className="flex gap-2">
+                    {t.type === 'income' && (
+                      <button onClick={() => handlePrintReceipt(t)} className="p-2 bg-slate-50 text-slate-500 rounded-lg">
+                        <Printer size={16} />
+                      </button>
+                    )}
+                    <button onClick={() => setDeleteConfirmId(t.id)} className="p-2 bg-rose-50 text-rose-600 rounded-lg">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -406,7 +639,7 @@ export function Financial() {
               <h3 className="text-xl font-bold text-slate-900">Novo Lançamento</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold">FECHAR</button>
             </div>
-            <form onSubmit={handleAddTransaction} className="p-6 space-y-4">
+            <form onSubmit={handleAddTransaction} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div className="flex gap-4 p-1 bg-slate-100 rounded-xl">
                 <button 
                   type="button" onClick={() => setNewTrans({...newTrans, type: 'income'})}
@@ -417,10 +650,12 @@ export function Financial() {
                   className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${newTrans.type === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500'}`}
                 >Despesa</button>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
                 <input type="text" required className="input-field" value={newTrans.description} onChange={e => setNewTrans({...newTrans, description: e.target.value})} />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Valor (R$)</label>
@@ -431,11 +666,12 @@ export function Financial() {
                   <input type="text" required className="input-field" placeholder="Ex: Sessão, Aluguel" value={newTrans.category} onChange={e => setNewTrans({...newTrans, category: e.target.value})} />
                 </div>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
                 <input type="date" required className="input-field" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} />
               </div>
-              
+
               {newTrans.type === 'income' && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Vincular Paciente (Opcional)</label>
@@ -458,12 +694,130 @@ export function Financial() {
                   </select>
                 </div>
               )}
+
+              {newTrans.type === 'expense' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tipo da Despesa</label>
+                  <select 
+                    className="input-field"
+                    value={newTrans.expenseType}
+                    onChange={e => setNewTrans({...newTrans, expenseType: e.target.value as 'fixed' | 'variable'})}
+                  >
+                    <option value="fixed">Despesa Fixa</option>
+                    <option value="variable">Despesa Variável</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="border-t border-slate-100 pt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-700 font-bold text-sm">
+                    <RefreshCw size={16} className="text-sky-600" />
+                    Este lançamento é recorrente
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={newTrans.isRecurring} 
+                      onChange={e => setNewTrans({...newTrans, isRecurring: e.target.checked})} 
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+                  </label>
+                </div>
+
+                {newTrans.isRecurring && (
+                  <div className="bg-slate-50 p-4 rounded-2xl space-y-4 animate-in slide-in-from-top-2 duration-200">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Frequência</label>
+                        <select 
+                          className="input-field py-2 text-sm"
+                          value={newTrans.frequency}
+                          onChange={e => setNewTrans({...newTrans, frequency: e.target.value as any})}
+                        >
+                          <option value="daily">Diário</option>
+                          <option value="weekly">Semanal</option>
+                          <option value="monthly">Mensal</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Repetições</label>
+                        <input 
+                          type="number" 
+                          placeholder="Ex: 12" 
+                          className="input-field py-2 text-sm" 
+                          value={newTrans.repetitions}
+                          onChange={e => setNewTrans({...newTrans, repetitions: e.target.value})}
+                        />
+                        <p className="text-[9px] text-slate-400 mt-1 italic leading-tight">Vazio para recorrência contínua (12 meses)</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 btn-secondary">Cancelar</button>
                 <button type="submit" className="flex-1 btn-primary">Lançar</button>
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Series Action Modal */}
+      {seriesAction === 'delete' && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl space-y-6"
+          >
+            <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto ring-8 ring-rose-50/50">
+              <RefreshCw size={32} />
+            </div>
+            
+            <div className="text-center space-y-2">
+              <h3 className="text-2xl font-bold text-slate-900">Lançamento Recorrente</h3>
+              <p className="text-slate-500 text-sm">
+                Este lançamento faz parte de uma série. O que deseja excluir?
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <button 
+                onClick={() => handleDelete(targetTrans!.id, 'single')}
+                className="w-full py-4 px-6 rounded-2xl border-2 border-slate-100 hover:border-rose-500 hover:bg-rose-50 text-left transition-all"
+              >
+                <div className="font-bold text-slate-800">Apenas este</div>
+              </button>
+
+              <button 
+                onClick={() => handleDelete(targetTrans!.id, 'following')}
+                className="w-full py-4 px-6 rounded-2xl border-2 border-slate-100 hover:border-rose-500 hover:bg-rose-50 text-left transition-all"
+              >
+                <div className="font-bold text-slate-800">Este e os próximos</div>
+              </button>
+
+              <button 
+                onClick={() => handleDelete(targetTrans!.id, 'all')}
+                className="w-full py-4 px-6 rounded-2xl border-2 border-slate-100 hover:border-rose-500 hover:bg-rose-50 text-left transition-all"
+              >
+                <div className="font-bold text-slate-800">Toda a série</div>
+              </button>
+            </div>
+
+            <button 
+              onClick={() => {
+                setSeriesAction(null);
+                setTargetTrans(null);
+              }} 
+              className="w-full py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-2xl transition-colors"
+            >
+              Cancelar
+            </button>
+          </motion.div>
         </div>
       )}
     </div>

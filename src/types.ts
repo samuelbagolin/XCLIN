@@ -126,4 +126,11 @@ export interface FinancialTransaction {
   patientName?: string;
   linkedAppointmentId?: string;
   clinicId: string;
+  isRecurring?: boolean;
+  recurrenceId?: string;
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  expenseType?: 'fixed' | 'variable';
+  repetitions?: number;
+  createdAt?: any;
+  updatedAt?: any;
 }

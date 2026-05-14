@@ -242,10 +242,10 @@ export function Calendar() {
           await Promise.all(batchPromises);
         }
       } else {
-        const recurrenceId = recurrenceOption !== 'none' ? Math.random().toString(36).substring(7) : undefined;
+        const generatedRecurrenceId = recurrenceOption !== 'none' ? Math.random().toString(36).substring(7) : null;
         
         if (recurrenceOption === 'none') {
-          await addDoc(collection(db, 'appointments'), {
+          const payload: any = {
             patientId: newApp.patientId,
             patientName: patient?.name || '',
             professionalId: newApp.professionalId,
@@ -256,13 +256,15 @@ export function Calendar() {
             type: newApp.type,
             clinicId: clinic.id,
             createdAt: serverTimestamp()
-          });
+          };
+          await addDoc(collection(db, 'appointments'), payload);
         } else {
           const dates = generateRecurringDates(startTime, recurrenceOption, recurrenceEndType, recurrenceEndDate, recurrenceCount);
           const promises = dates.map(date => {
             const instEnd = new Date(date);
             instEnd.setMinutes(instEnd.getMinutes() + 50);
-            return addDoc(collection(db, 'appointments'), {
+            
+            const payload: any = {
               patientId: newApp.patientId,
               patientName: patient?.name || '',
               professionalId: newApp.professionalId,
@@ -272,15 +274,16 @@ export function Calendar() {
               status: 'scheduled',
               type: newApp.type,
               clinicId: clinic.id,
-              recurrenceId,
+              recurrenceId: generatedRecurrenceId,
               recurrenceRule: {
                 frequency: recurrenceOption,
                 interval: 1,
-                until: recurrenceEndType === 'date' ? Timestamp.fromDate(new Date(recurrenceEndDate)) : null,
+                until: recurrenceEndType === 'date' ? Timestamp.fromDate(new Date(recurrenceEndDate + 'T23:59:59')) : null,
                 count: recurrenceEndType === 'count' ? recurrenceCount : null
               },
               createdAt: serverTimestamp()
-            });
+            };
+            return addDoc(collection(db, 'appointments'), payload);
           });
           await Promise.all(promises);
         }
